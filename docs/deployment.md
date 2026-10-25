@@ -121,7 +121,7 @@ produce a torn copy.
 
 ## Upgrades
 
-1. Read the [changelog](https://github.com/searchrelay/searchrelay/blob/main/CHANGELOG.md).
+1. Read the [changelog](https://github.com/CocoCopi/searchrelay/blob/main/CHANGELOG.md).
 2. Back up the billing database.
 3. Pull the new image and restart the API.
 4. Confirm `/healthz` and `/readyz` return 200 and that one search succeeds.

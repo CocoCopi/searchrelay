@@ -126,7 +126,7 @@ between your agent and the corpus you choose to run.
   pre-release `SF_` prefix still works as a fallback so existing deployments
   keep running, and `SR_` always wins when both are set.
 - The Python SDK package is `searchrelay` (was `searchfetch`), the Go module
-  is `github.com/searchrelay/searchrelay-go` (was
+  is `github.com/CocoCopi/searchrelay/clients/go` (was
   `github.com/searchfetch/searchfetch-go`), and the TypeScript SDK is
   `searchrelay-sdk`.
 - The crawl and fetch user agent is `SearchRelayBot/1.0` (was
@@ -179,5 +179,5 @@ These are documented rather than hidden:
 - SearchRelay does not own a web index and makes no claim about web-wide
   coverage.
 
-[Unreleased]: https://github.com/searchrelay/searchrelay/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/searchrelay/searchrelay/releases/tag/v0.1.0
+[Unreleased]: https://github.com/CocoCopi/searchrelay/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/CocoCopi/searchrelay/releases/tag/v0.1.0

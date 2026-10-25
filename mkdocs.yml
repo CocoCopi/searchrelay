@@ -1,7 +1,7 @@
 site_name: SearchRelay
 site_description: The open, self-hostable web search and fetch layer for AI agents.
 site_author: SearchRelay contributors
-repo_url: https://github.com/searchrelay/searchrelay
+repo_url: https://github.com/CocoCopi/searchrelay
 repo_name: searchrelay/searchrelay
 edit_uri: edit/main/docs/
 copyright: Apache-2.0 licensed. SearchRelay is not affiliated with DeepSeek, Brave, Tavily, Exa, or the SearXNG project.

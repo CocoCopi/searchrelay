@@ -1,7 +1,7 @@
 # SearchRelay
 
-[![CI](https://github.com/searchrelay/searchrelay/actions/workflows/ci.yml/badge.svg)](https://github.com/searchrelay/searchrelay/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/searchrelay/searchrelay.svg)](https://github.com/searchrelay/searchrelay/releases)
+[![CI](https://github.com/CocoCopi/searchrelay/actions/workflows/ci.yml/badge.svg)](https://github.com/CocoCopi/searchrelay/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/CocoCopi/searchrelay.svg)](https://github.com/CocoCopi/searchrelay/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 [![Docker](https://img.shields.io/badge/docker-non--root-blue.svg)](Dockerfile)

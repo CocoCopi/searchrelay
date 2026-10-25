@@ -7,7 +7,7 @@ assignees: ""
 ---
 
 The ten current tasks live in
-[`docs/good-first-issues.md`](https://github.com/searchrelay/searchrelay/blob/main/docs/good-first-issues.md).
+[`docs/good-first-issues.md`](https://github.com/CocoCopi/searchrelay/blob/main/docs/good-first-issues.md).
 Use this template to propose another one.
 
 ## Title

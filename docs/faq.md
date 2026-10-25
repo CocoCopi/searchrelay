@@ -141,7 +141,7 @@ The CLI writes to the same ledger the service bills against. See
 
 ## How can I help?
 
-Read [CONTRIBUTING.md](https://github.com/searchrelay/searchrelay/blob/main/CONTRIBUTING.md)
+Read [CONTRIBUTING.md](https://github.com/CocoCopi/searchrelay/blob/main/CONTRIBUTING.md)
 and pick up one of the tasks in
 [Development](good-first-issues.md). Bug reports, provider adapters, and
 documentation fixes are all welcome.

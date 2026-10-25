@@ -1,11 +1,11 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/searchrelay/searchrelay/security/advisories/new
+    url: https://github.com/CocoCopi/searchrelay/security/advisories/new
     about: Report a vulnerability privately. Please do not open a public issue for security problems.
   - name: Good first issues
-    url: https://github.com/searchrelay/searchrelay/blob/main/docs/good-first-issues.md
+    url: https://github.com/CocoCopi/searchrelay/blob/main/docs/good-first-issues.md
     about: Ten scoped tasks written as issue text, ready to pick up.
   - name: Question or discussion
-    url: https://github.com/searchrelay/searchrelay/discussions
+    url: https://github.com/CocoCopi/searchrelay/discussions
     about: Ask a question about configuration, deployment, or usage.

@@ -38,7 +38,6 @@ Reply with a single JSON object:
 
 Set "done" to true only when the notes answer the question. Cite only URLs that
 appear in the notes."""
-"""
 
 
 def ask_model(answer_url: str, answer_key: str, model: str, payload: dict) -> dict:

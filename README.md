@@ -36,6 +36,9 @@ The API, ranking, summarization, security, billing, and client layers are indepe
 - Account-level, independently tracked Search (100 QPS) and Fetch (25 QPS) sliding-window limits, plus a per-domain Fetch limit.
 - Durable account balances and atomic billing in SQLite.
 - OpenAPI 3.1 document at [`openapi.json`](openapi.json) and the live `/openapi.json` endpoint.
+- Prometheus metrics on `/metrics`, structured JSON logs with request ids, and optional OpenTelemetry tracing.
+- Shared rate limiting and billing through Redis so several replicas enforce one budget and one quota.
+- Admin CLI to create keys, set budgets, and review usage.
 - Python, TypeScript, and Go SDKs, a Model Context Protocol (MCP) server for Claude Desktop, Claude Code, Cursor, and Windsurf, plus LangChain and LlamaIndex adapters.
 - Docker Compose, tests, and example agents (cited answer, deep-research loop, Streamlit demo).
 
@@ -305,6 +308,14 @@ All settings use the `SF_` prefix.
 | `SF_BLOCKED_DOMAINS_CSV` | empty | Comma-separated blocked domains |
 | `SF_ALLOWED_DOMAINS_CSV` | empty | Optional comma-separated allowlist |
 | `SF_MAX_REQUEST_BODY_BYTES` | `65536` | Maximum API request size |
+| `SF_METRICS_ENABLED` | `true` | Expose Prometheus metrics on `/metrics` |
+| `SF_LOG_JSON` | `true` | Emit JSON log lines |
+| `SF_LOG_LEVEL` | `INFO` | Root log level |
+| `SF_TRACING_ENABLED` | `false` | Enable OpenTelemetry tracing (experimental) |
+| `SF_OTEL_SERVICE_NAME` | `searchrelay` | Service name reported in spans |
+| `SF_OTEL_EXPORTER_OTLP_ENDPOINT` | unset | OTLP HTTP traces endpoint |
+| `SF_REDIS_URL` | unset | Shared Redis for rate limiting and billing |
+| `SF_REDIS_PREFIX` | `searchrelay` | Redis key prefix |
 
 ## Security model
 
@@ -398,6 +409,17 @@ See [`docs/agents.md`](docs/agents.md) for the tool and reader snippets.
 4. Ask an OpenAI-compatible chat endpoint for an answer with citations.
 
 See the file header for the required environment variables.
+
+## Operations
+
+Metrics, structured logs, tracing, the shared Redis backends, the admin CLI,
+and the container images are documented in [`docs/operations.md`](docs/operations.md).
+
+```bash
+.venv/bin/searchrelay-admin create-key --account demo --balance 100000000
+.venv/bin/searchrelay-admin usage
+curl -s http://localhost:8000/metrics | head
+```
 
 ## Tests and checks
 

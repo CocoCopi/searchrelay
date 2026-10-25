@@ -122,9 +122,9 @@ class SQLiteCache:
         self._lock = threading.Lock()
         self._initialized = False
 
-    def initialize(self) -> None:
+    def initialize(self, *, force: bool = False) -> None:
         with self._lock:
-            if self._initialized:
+            if self._initialized and not force:
                 return
             self.database_path.parent.mkdir(parents=True, exist_ok=True)
             with self._connect() as connection:
@@ -148,17 +148,44 @@ class SQLiteCache:
                 connection.commit()
             self._initialized = True
 
-    def get(self, key: str, *, allow_expired: bool = False) -> CacheEntry | None:
+    def _execute(
+        self,
+        sql: str,
+        parameters: tuple[Any, ...] = (),
+    ) -> tuple[list[tuple[Any, ...]], int]:
+        """Run a statement, recreating the schema if the database was wiped."""
+
         self.initialize()
+        try:
+            return self._run(sql, parameters)
+        except sqlite3.OperationalError as exc:
+            if "no such table" not in str(exc).lower():
+                raise
+            self.initialize(force=True)
+            return self._run(sql, parameters)
+
+    def _run(
+        self,
+        sql: str,
+        parameters: tuple[Any, ...],
+    ) -> tuple[list[tuple[Any, ...]], int]:
         with self._lock:
             with self._connect() as connection:
-                row = connection.execute(
-                    """
-                    SELECT value, content_type, etag, last_modified, created_at, expires_at, metadata
-                    FROM cache_entries WHERE key = ?
-                    """,
-                    (key,),
-                ).fetchone()
+                cursor = connection.execute(sql, parameters)
+                rows = cursor.fetchall() if cursor.description else []
+                rowcount = cursor.rowcount if cursor.rowcount is not None else 0
+                connection.commit()
+                return list(rows), rowcount
+
+    def get(self, key: str, *, allow_expired: bool = False) -> CacheEntry | None:
+        rows, _ = self._execute(
+            """
+            SELECT value, content_type, etag, last_modified, created_at, expires_at, metadata
+            FROM cache_entries WHERE key = ?
+            """,
+            (key,),
+        )
+        row = rows[0] if rows else None
         if row is None:
             return None
         entry = CacheEntry(
@@ -189,69 +216,49 @@ class SQLiteCache:
         )
 
     def set(self, entry: CacheEntry) -> None:
-        self.initialize()
-        with self._lock:
-            with self._connect() as connection:
-                connection.execute(
-                    """
-                    INSERT INTO cache_entries (
-                        key, value, content_type, etag, last_modified, created_at, expires_at, metadata
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(key) DO UPDATE SET
-                        value = excluded.value,
-                        content_type = excluded.content_type,
-                        etag = excluded.etag,
-                        last_modified = excluded.last_modified,
-                        created_at = excluded.created_at,
-                        expires_at = excluded.expires_at,
-                        metadata = excluded.metadata
-                    """,
-                    (
-                        entry.key,
-                        entry.value,
-                        entry.content_type,
-                        entry.etag,
-                        entry.last_modified,
-                        entry.created_at,
-                        entry.expires_at,
-                        json.dumps(entry.metadata, ensure_ascii=False),
-                    ),
-                )
-                connection.commit()
+        self._execute(
+            """
+            INSERT INTO cache_entries (
+                key, value, content_type, etag, last_modified, created_at, expires_at, metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                content_type = excluded.content_type,
+                etag = excluded.etag,
+                last_modified = excluded.last_modified,
+                created_at = excluded.created_at,
+                expires_at = excluded.expires_at,
+                metadata = excluded.metadata
+            """,
+            (
+                entry.key,
+                entry.value,
+                entry.content_type,
+                entry.etag,
+                entry.last_modified,
+                entry.created_at,
+                entry.expires_at,
+                json.dumps(entry.metadata, ensure_ascii=False),
+            ),
+        )
 
     def touch(self, key: str, expires_at: float) -> None:
-        self.initialize()
-        with self._lock:
-            with self._connect() as connection:
-                connection.execute(
-                    "UPDATE cache_entries SET expires_at = ? WHERE key = ?",
-                    (expires_at, key),
-                )
-                connection.commit()
+        self._execute(
+            "UPDATE cache_entries SET expires_at = ? WHERE key = ?",
+            (expires_at, key),
+        )
 
     def delete(self, key: str) -> None:
-        self.initialize()
-        with self._lock:
-            with self._connect() as connection:
-                connection.execute("DELETE FROM cache_entries WHERE key = ?", (key,))
-                connection.commit()
+        self._execute("DELETE FROM cache_entries WHERE key = ?", (key,))
 
     def purge_expired(self) -> int:
-        self.initialize()
-        with self._lock:
-            with self._connect() as connection:
-                cursor = connection.execute(
-                    "DELETE FROM cache_entries WHERE expires_at <= ?", (time.time(),)
-                )
-                connection.commit()
-                return cursor.rowcount or 0
+        _, rowcount = self._execute(
+            "DELETE FROM cache_entries WHERE expires_at <= ?", (time.time(),)
+        )
+        return rowcount
 
     def clear(self) -> None:
-        self.initialize()
-        with self._lock:
-            with self._connect() as connection:
-                connection.execute("DELETE FROM cache_entries")
-                connection.commit()
+        self._execute("DELETE FROM cache_entries")
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.database_path, timeout=10)

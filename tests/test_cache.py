@@ -77,6 +77,20 @@ async def test_two_tier_cache_touch_extends_expiry(tmp_path) -> None:
     assert entry.is_fresh()
 
 
+def test_sqlite_cache_recovers_when_the_database_file_is_removed(tmp_path) -> None:
+    path = tmp_path / "cache.db"
+    cache = SQLiteCache(path)
+    cache.set(_entry("a"))
+
+    path.unlink()
+
+    assert cache.get("a") is None
+    cache.set(_entry("b"))
+    entry = cache.get("b")
+    assert entry is not None
+    assert entry.value == "value-b"
+
+
 @pytest.mark.asyncio
 async def test_single_flight_shares_one_upstream_call() -> None:
     flight = SingleFlight()

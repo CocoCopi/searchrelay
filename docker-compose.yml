@@ -34,6 +34,19 @@ services:
       start_period: 30s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+
   api:
     build:
       context: .
@@ -42,11 +55,17 @@ services:
     depends_on:
       searxng:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       SF_UPSTREAM_URL: http://searxng:8080
       SF_API_KEYS_JSON: '${SF_API_KEYS_JSON:?Set SF_API_KEYS_JSON in .env}'
       SF_INITIAL_BALANCES_JSON: '${SF_INITIAL_BALANCES_JSON:?Set SF_INITIAL_BALANCES_JSON in .env}'
       SF_DATABASE_PATH: /data/searchfetch.db
+      SF_CACHE_DATABASE_PATH: /data/cache.db
+      SF_LOCAL_INDEX_PATH: /data/local-index.db
+      SF_REDIS_URL: redis://redis:6379/0
+      SF_LOG_JSON: "true"
       SF_SEARCH_QPS: ${SF_SEARCH_QPS:-100}
       SF_FETCH_QPS: ${SF_FETCH_QPS:-25}
       SF_FETCH_DOMAIN_QPS: ${SF_FETCH_DOMAIN_QPS:-5}
@@ -63,3 +82,4 @@ services:
 volumes:
   searchfetch-data:
   searxng-cache:
+  redis-data:

@@ -6,6 +6,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
+from typing import Callable
 
 from app.operators import ParsedQuery
 from app.providers.base import ProviderError, ProviderSearchResult, SearchProvider
@@ -105,10 +106,12 @@ class ResilientProvider:
         self,
         provider: SearchProvider,
         config: ReliabilityConfig,
+        observer: Callable[[str, str, float], None] | None = None,
     ) -> None:
         self.provider = provider
         self.name = provider.name
         self.config = config
+        self.observer = observer
         self._budget = SlidingWindowBudget(config.requests_per_minute)
         self._semaphore = asyncio.Semaphore(config.max_concurrency)
         self._breaker = CircuitBreaker(
@@ -135,10 +138,12 @@ class ResilientProvider:
                 owns_probe = await self._breaker.allow_request()
             if not self._budget.acquire():
                 await self._breaker.cancel_request()
+                self._report("budget_exhausted", 0.0)
                 raise ProviderError(
                     f"Provider {self.name} request budget exhausted",
                     retryable=False,
                 )
+            started = time.perf_counter()
             try:
                 async with self._semaphore:
                     result = await asyncio.wait_for(
@@ -158,16 +163,20 @@ class ResilientProvider:
                     retryable=True,
                 )
                 last_error.__cause__ = exc
+                self._report("timeout", time.perf_counter() - started)
             except ProviderError as exc:
                 last_error = exc
+                self._report("error", time.perf_counter() - started)
             except Exception as exc:
                 last_error = ProviderError(
                     f"Provider {self.name} failed unexpectedly",
                     retryable=True,
                 )
                 last_error.__cause__ = exc
+                self._report("error", time.perf_counter() - started)
             else:
                 await self._breaker.record_success()
+                self._report("success", time.perf_counter() - started)
                 return result
 
             if last_error is None:
@@ -203,3 +212,11 @@ class ResilientProvider:
             return 0.0
         ceiling = self.config.retry_base_delay_seconds * (2**attempt)
         return random.uniform(0.0, ceiling)
+
+    def _report(self, outcome: str, duration: float) -> None:
+        if self.observer is None:
+            return
+        try:
+            self.observer(self.name, outcome, duration)
+        except Exception:  # pragma: no cover - metrics must never break a search
+            return

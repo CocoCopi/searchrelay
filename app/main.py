@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import logging
+import platform
+import time
+import uuid
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
@@ -10,11 +14,12 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth import AccountResolver
 from app.authority import load_authority_config
-from app.billing import BillingStore
+from app.billing import BillingService, BillingStore, RedisBillingStore
 from app.cache import TwoTierCache
 from app.config import Settings
 from app.errors import APIError, BodyTooLarge, error_payload, install_error_handlers
 from app.fetch import FetchService
+from app.metrics import Metrics, route_label
 from app.models import (
     FetchRequest,
     FetchResponse,
@@ -24,13 +29,20 @@ from app.models import (
     SearchRequest,
     SearchResponse,
 )
+from app.observability import configure_logging, setup_tracing, span
 from app.pipeline import SearchPipeline
 from app.providers.factory import build_search_provider
-from app.rate_limit import SlidingWindowRateLimiter
+from app.rate_limit import (
+    RateLimiterService,
+    RedisSlidingWindowRateLimiter,
+    SlidingWindowRateLimiter,
+)
 from app.ranking import Ranker
 from app.render import JavaScriptRenderer
 from app.rerank import CrossEncoderReranker, CrossEncoderUnavailable
 from app.security import SecurityPolicy, URLValidationError, validate_url
+
+logger = logging.getLogger("searchrelay.http")
 
 
 ERROR_SCHEMA: dict[str, Any] = {
@@ -91,21 +103,52 @@ def create_app(
     http_client: httpx.AsyncClient | None = None,
 ) -> FastAPI:
     runtime_settings = settings or Settings()
+    metrics = Metrics()
+    metrics.build_info.labels(
+        version=runtime_settings.service_version,
+        python_version=platform.python_version(),
+    ).set(1)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         runtime_settings.validate_runtime_config()
-        billing = BillingStore(
-            runtime_settings.database_path,
-            runtime_settings.price_micros_per_request,
+        configure_logging(
+            level=runtime_settings.log_level,
+            json_logs=runtime_settings.log_json,
         )
-        await _run_sync(
-            billing.initialize,
-            runtime_settings.effective_initial_balances(),
+        setup_tracing(
+            service_name=runtime_settings.otel_service_name,
+            enabled=runtime_settings.tracing_enabled,
+            otlp_endpoint=runtime_settings.otel_exporter_otlp_endpoint,
         )
-        app.state.billing = billing
+        redis_client = await _build_redis_client(runtime_settings)
+        app.state.redis = redis_client
+
+        if redis_client is not None:
+            billing_backend: Any = RedisBillingStore(
+                redis_client,
+                runtime_settings.price_micros_per_request,
+                prefix=f"{runtime_settings.redis_prefix}:billing",
+            )
+        else:
+            billing_backend = BillingStore(
+                runtime_settings.database_path,
+                runtime_settings.price_micros_per_request,
+            )
+        billing_service = BillingService(billing_backend)
+        await billing_service.initialize(runtime_settings.effective_initial_balances())
+        app.state.billing = billing_backend
+        app.state.billing_service = billing_service
         app.state.account_resolver = AccountResolver(runtime_settings.effective_api_keys())
-        app.state.rate_limiter = SlidingWindowRateLimiter()
+        if redis_client is not None:
+            limiter_backend: Any = RedisSlidingWindowRateLimiter(
+                redis_client,
+                prefix=f"{runtime_settings.redis_prefix}:ratelimit",
+            )
+        else:
+            limiter_backend = SlidingWindowRateLimiter()
+        app.state.rate_limiter = limiter_backend
+        app.state.rate_limiter_service = RateLimiterService(limiter_backend)
 
         owns_client = http_client is None
         if http_client is None:
@@ -130,6 +173,8 @@ def create_app(
         app.state.security_policy = policy
         cache = _build_cache(runtime_settings)
         app.state.cache = cache
+        if cache is not None:
+            metrics.bind_cache(cache)
         renderer = None
         if runtime_settings.render_js:
             renderer = JavaScriptRenderer(
@@ -150,7 +195,15 @@ def create_app(
             renderer=renderer,
         )
         app.state.fetcher = fetcher
-        backend = build_search_provider(runtime_settings, client)
+        backend = build_search_provider(
+            runtime_settings,
+            client,
+            observer=lambda provider, outcome, duration: metrics.observe_provider(
+                provider=provider,
+                outcome=outcome,
+                duration=duration,
+            ),
+        )
         app.state.backend = backend
         cross_encoder = _build_cross_encoder(runtime_settings)
         app.state.cross_encoder = cross_encoder
@@ -173,12 +226,14 @@ def create_app(
         try:
             yield
         finally:
+            if redis_client is not None:
+                await redis_client.aclose()
             if owns_client:
                 await client.aclose()
 
     app = FastAPI(
         title="Search & Fetch API",
-        version="1.0.0",
+        version=runtime_settings.service_version,
         description=(
             "Search and web-fetch tools for AI agents and retrieval-augmented generation. "
             "The public contract is compatible with the DeepSeek Search API shape."
@@ -187,6 +242,7 @@ def create_app(
     )
     app.state.settings = runtime_settings
     app.state.http_client = http_client
+    app.state.metrics = metrics
     install_error_handlers(app)
 
     @app.middleware("http")
@@ -219,6 +275,51 @@ def create_app(
             request._receive = limited_receive
 
         return await call_next(request)
+
+    @app.middleware("http")
+    async def observe_request(request: Request, call_next):
+        request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
+        request.state.request_id = request_id
+        started = time.perf_counter()
+        status_code = 500
+        try:
+            with span(
+                "http.request",
+                **{
+                    "http.request.method": request.method,
+                    "url.path": request.url.path,
+                    "request.id": request_id,
+                },
+            ):
+                response = await call_next(request)
+                status_code = response.status_code
+                response.headers["X-Request-Id"] = request_id
+                return response
+        finally:
+            duration = time.perf_counter() - started
+            route = route_label(request)
+            metrics.observe_request(
+                method=request.method,
+                route=route,
+                status=status_code,
+                duration=duration,
+            )
+            logger.info(
+                "http_request",
+                extra={
+                    "request_id": request_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "route": route,
+                    "status": status_code,
+                    "duration_ms": round(duration * 1000, 3),
+                },
+            )
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics_endpoint(request: Request) -> Response:
+        payload, content_type = request.app.state.metrics.render()
+        return Response(content=payload, media_type=content_type)
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz(request: Request) -> JSONResponse:
@@ -262,16 +363,20 @@ def create_app(
     ) -> SearchResponse:
         _require_json_content_type(http_request)
         state = http_request.app.state
-        if not state.rate_limiter.check_and_record(
+        if not await state.rate_limiter_service.check_and_record(
             f"account:{account_id}:search",
             runtime_settings.search_qps,
         ):
+            metrics.record_rate_limit_rejection("search")
             raise APIError(429, "Account search QPS limit exceeded", "qps_exceeded")
-        await _ensure_balance(state.billing, account_id)
+        await _ensure_balance(state.billing_service, account_id)
 
         outcome = await state.search_pipeline.search(request)
-        if outcome.results and not state.billing.charge(account_id, "search"):
-            raise APIError(402, "Account balance is insufficient", "insufficient_balance")
+        if outcome.results:
+            charged = await state.billing_service.charge(account_id, "search")
+            metrics.record_billing(action="search", charged=charged)
+            if not charged:
+                raise APIError(402, "Account balance is insufficient", "insufficient_balance")
         http_response.headers["X-Providers-Used"] = ",".join(outcome.providers_used)
         http_response.headers["X-Content-Untrusted"] = "true"
         return SearchResponse(results=list(outcome.results))
@@ -307,10 +412,11 @@ def create_app(
         providers_used: list[str] = []
 
         for query in request.queries:
-            if not state.rate_limiter.check_and_record(
+            if not await state.rate_limiter_service.check_and_record(
                 f"account:{account_id}:search",
                 runtime_settings.search_qps,
             ):
+                metrics.record_rate_limit_rejection("search")
                 raise APIError(429, "Account search QPS limit exceeded", "qps_exceeded")
             search_request = SearchRequest(
                 query=query,
@@ -338,7 +444,9 @@ def create_app(
                 continue
 
             if outcome.results:
-                if not state.billing.charge(account_id, "search"):
+                charged = await state.billing_service.charge(account_id, "search")
+                metrics.record_billing(action="search", charged=charged)
+                if not charged:
                     raise APIError(402, "Account balance is insufficient", "insufficient_balance")
             for provider in outcome.providers_used:
                 if provider not in providers_used:
@@ -379,25 +487,29 @@ def create_app(
     ) -> FetchResponse:
         _require_json_content_type(http_request)
         state = http_request.app.state
-        if not state.rate_limiter.check_and_record(
+        if not await state.rate_limiter_service.check_and_record(
             f"account:{account_id}:fetch",
             runtime_settings.fetch_qps,
         ):
+            metrics.record_rate_limit_rejection("fetch")
             raise APIError(429, "Account fetch QPS limit exceeded", "qps_exceeded")
 
         try:
             target = validate_url(request.url)
         except URLValidationError as exc:
             raise APIError(400, f"Invalid URL: {exc}", "invalid_url") from exc
-        if not state.rate_limiter.check_and_record(
+        if not await state.rate_limiter_service.check_and_record(
             f"domain:{target.hostname}:fetch",
             runtime_settings.fetch_domain_qps,
         ):
+            metrics.record_rate_limit_rejection("domain_fetch")
             raise APIError(429, "Per-domain fetch rate limit exceeded", "domain_rate_limit_exceeded")
-        await _ensure_balance(state.billing, account_id)
+        await _ensure_balance(state.billing_service, account_id)
 
         page = await state.fetcher.fetch(request.url)
-        if not state.billing.charge(account_id, "fetch"):
+        charged = await state.billing_service.charge(account_id, "fetch")
+        metrics.record_billing(action="fetch", charged=charged)
+        if not charged:
             raise APIError(402, "Account balance is insufficient", "insufficient_balance")
         http_response.headers["X-Content-Untrusted"] = "true"
         return FetchResponse(title=page.title, content=page.content)
@@ -465,10 +577,35 @@ def _build_cache(settings: Settings) -> TwoTierCache | None:
     )
 
 
-async def _ensure_balance(billing: BillingStore, account_id: str) -> None:
-    balance = await _run_sync(billing.get_balance, account_id)
+async def _ensure_balance(billing: BillingService, account_id: str) -> None:
+    balance = await billing.get_balance(account_id)
     if balance <= 0:
         raise APIError(402, "Account balance is insufficient", "insufficient_balance")
+
+
+async def _build_redis_client(settings: Settings) -> Any | None:
+    """Create the shared Redis client when ``SF_REDIS_URL`` is configured."""
+
+    if not settings.redis_url:
+        return None
+    try:
+        from redis.asyncio import Redis
+    except ImportError as exc:  # pragma: no cover - depends on the environment
+        raise RuntimeError(
+            "SearchRelay startup configuration error: SF_REDIS_URL is set but the "
+            "'redis' package is not installed. Install it with: "
+            "pip install 'searchfetch-api[redis]'"
+        ) from exc
+    client = Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        await client.ping()
+    except Exception as exc:
+        await client.aclose()
+        raise RuntimeError(
+            f"SearchRelay startup configuration error: cannot reach Redis at "
+            f"{settings.redis_url}: {exc}"
+        ) from exc
+    return client
 
 
 async def _run_sync(function, *args):

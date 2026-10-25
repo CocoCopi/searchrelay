@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     upstream_url: str = "http://searxng:8080"
     upstream_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
     engine_name: str = "searxng"
+    service_version: str = "1.0.0"
 
     provider_config_file: Path | None = None
     provider_priorities: str = "searxng"
@@ -76,6 +77,16 @@ class Settings(BaseSettings):
     blocked_domains_csv: str = ""
     allowed_domains_csv: str = ""
 
+    metrics_enabled: bool = True
+    log_level: str = "INFO"
+    log_json: bool = True
+    tracing_enabled: bool = False
+    otel_service_name: str = "searchrelay"
+    otel_exporter_otlp_endpoint: str | None = None
+
+    redis_url: str | None = None
+    redis_prefix: str = "searchrelay"
+
     @field_validator("upstream_url")
     @classmethod
     def validate_upstream_url(cls, value: str) -> str:
@@ -111,6 +122,14 @@ class Settings(BaseSettings):
         if isinstance(value, str) and not value.strip():
             return None
         return Path(value).expanduser() if isinstance(value, (str, Path)) else value
+
+    @field_validator("otel_exporter_otlp_endpoint", mode="before")
+    @classmethod
+    def validate_otel_endpoint(cls, value: object) -> object:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     @field_validator("api_keys_json", "initial_balances_json", mode="before")
     @classmethod
@@ -180,6 +199,15 @@ class Settings(BaseSettings):
                 "SF_RERANK_CROSS_ENCODER_MODEL must point at a model directory when "
                 "SF_RERANK_CROSS_ENCODER_ENABLED is true"
             )
+        if self.redis_url:
+            try:
+                import redis  # noqa: F401
+            except ImportError as exc:
+                raise RuntimeError(
+                    "SearchRelay startup configuration error: SF_REDIS_URL is set but the "
+                    "'redis' package is not installed. Install it with: "
+                    "pip install 'searchfetch-api[redis]'"
+                ) from exc
         if problems:
             raise RuntimeError("SearchRelay startup configuration error: " + "; ".join(problems))
 

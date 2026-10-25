@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Callable
+
 import httpx
 
 from app.config import Settings
@@ -20,6 +22,7 @@ from app.providers.reliability import ReliabilityConfig, ResilientProvider
 def build_search_provider(
     settings: Settings,
     client: httpx.AsyncClient,
+    observer: Callable[[str, str, float], None] | None = None,
 ) -> FederatedSearchProvider:
     configs = load_provider_configs(settings)
     providers = []
@@ -37,6 +40,7 @@ def build_search_provider(
                 requests_per_minute=provider_config.requests_per_minute,
                 max_concurrency=provider_config.max_concurrency,
             ),
+            observer=observer,
         )
         providers.append(resilient)
         max_results[provider_config.name] = provider_config.max_results

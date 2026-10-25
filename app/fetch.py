@@ -53,7 +53,7 @@ class FetchService:
         *,
         client: httpx.AsyncClient,
         policy: SecurityPolicy,
-        user_agent: str = "DeepSeekBot/1.0",
+        user_agent: str = "SearchRelayBot/1.0",
         max_bytes: int = 5 * 1024 * 1024,
         max_redirects: int = 5,
         respect_robots: bool = True,

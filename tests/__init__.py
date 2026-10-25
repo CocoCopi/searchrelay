@@ -1,1 +1,1 @@
-"""Test suite for the Search & Fetch API."""
+"""Test suite for the SearchRelay."""

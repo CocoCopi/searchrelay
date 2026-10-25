@@ -69,8 +69,8 @@ class FetchPage:
         )
 
 
-class SearchFetchClient:
-    """Synchronous client for the Search & Fetch API."""
+class SearchRelayClient:
+    """Synchronous client for the SearchRelay."""
 
     def __init__(
         self,
@@ -130,7 +130,7 @@ class SearchFetchClient:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "SearchFetchClient":
+    def __enter__(self) -> "SearchRelayClient":
         return self
 
     def __exit__(self, *_: object) -> None:

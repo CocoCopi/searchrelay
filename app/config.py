@@ -1,22 +1,32 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+LEGACY_ENV_PREFIX = "SF_"
 
 
 class Settings(BaseSettings):
     """Runtime configuration.
 
-    Environment variables use the ``SF_`` prefix. Dictionary values are JSON
+    Environment variables use the ``SR_`` prefix. Dictionary values are JSON
     encoded when supplied through the environment.
+
+    The pre-0.1.0 ``SF_`` prefix is still accepted as a fallback so existing
+    deployments keep running after the rename. ``SR_`` always wins when both
+    prefixes define the same setting.
     """
 
     model_config = SettingsConfigDict(
-        env_prefix="SF_",
+        env_prefix="SR_",
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
@@ -25,7 +35,7 @@ class Settings(BaseSettings):
     upstream_url: str = "http://searxng:8080"
     upstream_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
     engine_name: str = "searxng"
-    service_version: str = "1.0.0"
+    service_version: str = "0.1.0"
 
     provider_config_file: Path | None = None
     provider_priorities: str = "searxng"
@@ -52,7 +62,7 @@ class Settings(BaseSettings):
     initial_balances_json: Annotated[dict[str, int], NoDecode] = Field(default_factory=dict)
     keys_file: Path | None = None
 
-    database_path: Path = Path("data/searchfetch.db")
+    database_path: Path = Path("data/searchrelay.db")
     price_micros_per_request: int = Field(default=750, ge=0)
     search_qps: int = Field(default=100, ge=1)
     fetch_qps: int = Field(default=25, ge=1)
@@ -72,7 +82,7 @@ class Settings(BaseSettings):
     fetch_max_redirects: int = Field(default=5, ge=0, le=10)
     fetch_concurrency: int = Field(default=5, ge=1, le=20)
     respect_robots: bool = True
-    user_agent: str = "DeepSeekBot/1.0"
+    user_agent: str = "SearchRelayBot/1.0"
 
     blocked_domains_csv: str = ""
     allowed_domains_csv: str = ""
@@ -87,6 +97,34 @@ class Settings(BaseSettings):
     redis_url: str | None = None
     redis_prefix: str = "searchrelay"
 
+    @model_validator(mode="before")
+    @classmethod
+    def apply_legacy_env_prefix(cls, values: Any) -> Any:
+        """Fall back to the deprecated ``SF_`` prefix for unset ``SR_`` values."""
+
+        if not isinstance(values, dict):
+            return values
+        legacy: dict[str, str] = {}
+        for name, raw in os.environ.items():
+            if name.startswith(LEGACY_ENV_PREFIX) and len(name) > len(LEGACY_ENV_PREFIX):
+                legacy[name[len(LEGACY_ENV_PREFIX) :].lower()] = raw
+        if not legacy:
+            return values
+        applied: list[str] = []
+        for field_name, raw in legacy.items():
+            if field_name not in cls.model_fields:
+                continue
+            if values.get(field_name) is not None:
+                continue
+            values[field_name] = raw
+            applied.append(f"{LEGACY_ENV_PREFIX}{field_name.upper()}")
+        if applied:
+            logger.warning(
+                "Using deprecated environment variables %s; rename them to the SR_ prefix",
+                ", ".join(sorted(applied)),
+            )
+        return values
+
     @field_validator("upstream_url")
     @classmethod
     def validate_upstream_url(cls, value: str) -> str:
@@ -98,17 +136,32 @@ class Settings(BaseSettings):
     @field_validator("database_path")
     @classmethod
     def validate_database_path(cls, value: Path) -> Path:
-        return value.expanduser()
+        path = value.expanduser()
+        if str(path) == ".":
+            raise ValueError("database_path must point at a writable file, not a directory")
+        return path
 
-    @field_validator("cache_database_path")
+    @field_validator("cache_database_path", mode="before")
     @classmethod
-    def validate_cache_database_path(cls, value: Path | None) -> Path | None:
-        return value.expanduser() if value is not None else None
+    def validate_cache_database_path(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, str) and not value.strip():
+            # An empty value disables the persistent tier. Pointing SQLite at
+            # an empty path would otherwise fail every request at runtime.
+            return None
+        path = Path(value).expanduser()
+        if str(path) == ".":
+            raise ValueError("cache_database_path must point at a writable file, not a directory")
+        return path
 
     @field_validator("local_index_path")
     @classmethod
     def validate_local_index_path(cls, value: Path) -> Path:
-        return value.expanduser()
+        path = value.expanduser()
+        if str(path) == ".":
+            raise ValueError("local_index_path must point at a writable file, not a directory")
+        return path
 
     @field_validator(
         "authority_config_file",
@@ -190,23 +243,23 @@ class Settings(BaseSettings):
         problems: list[str] = []
         if not self.effective_api_keys():
             problems.append(
-                "SF_API_KEYS_JSON or SF_KEYS_FILE must define at least one API key"
+                "SR_API_KEYS_JSON or SR_KEYS_FILE must define at least one API key"
             )
         if not self.upstream_url:
-            problems.append("SF_UPSTREAM_URL must be set")
+            problems.append("SR_UPSTREAM_URL must be set")
         if self.rerank_cross_encoder_enabled and not self.rerank_cross_encoder_model:
             problems.append(
-                "SF_RERANK_CROSS_ENCODER_MODEL must point at a model directory when "
-                "SF_RERANK_CROSS_ENCODER_ENABLED is true"
+                "SR_RERANK_CROSS_ENCODER_MODEL must point at a model directory when "
+                "SR_RERANK_CROSS_ENCODER_ENABLED is true"
             )
         if self.redis_url:
             try:
                 import redis  # noqa: F401
             except ImportError as exc:
                 raise RuntimeError(
-                    "SearchRelay startup configuration error: SF_REDIS_URL is set but the "
+                    "SearchRelay startup configuration error: SR_REDIS_URL is set but the "
                     "'redis' package is not installed. Install it with: "
-                    "pip install 'searchfetch-api[redis]'"
+                    "pip install 'searchrelay[redis]'"
                 ) from exc
         if problems:
             raise RuntimeError("SearchRelay startup configuration error: " + "; ".join(problems))

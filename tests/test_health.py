@@ -43,11 +43,11 @@ async def test_healthz_and_readyz_report_unavailable_backend(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_startup_fails_fast_when_api_key_configuration_is_missing(monkeypatch) -> None:
-    monkeypatch.setenv("SF_API_KEYS_JSON", "")
+    monkeypatch.setenv("SR_API_KEYS_JSON", "")
     settings = Settings()
     application = create_app(settings)
 
-    with pytest.raises(RuntimeError, match="SF_API_KEYS_JSON or SF_KEYS_FILE"):
+    with pytest.raises(RuntimeError, match="SR_API_KEYS_JSON or SR_KEYS_FILE"):
         async with application.router.lifespan_context(application):
             pass
 

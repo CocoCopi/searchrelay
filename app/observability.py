@@ -132,7 +132,7 @@ def setup_tracing(
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise TracingUnavailable(
             "Tracing is enabled but the OpenTelemetry packages are not installed. "
-            "Install them with: pip install 'searchfetch-api[tracing]'"
+            "Install them with: pip install 'searchrelay[tracing]'"
         ) from exc
 
     resource = Resource.create({"service.name": service_name})

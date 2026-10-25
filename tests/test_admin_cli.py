@@ -105,7 +105,7 @@ def test_list_keys_masks_the_key(tmp_path: Path, capsys) -> None:
 
 def test_usage_reports_billed_requests(tmp_path: Path, monkeypatch, capsys) -> None:
     database = tmp_path / "billing.db"
-    monkeypatch.setenv("SF_DATABASE_PATH", str(database))
+    monkeypatch.setenv("SR_DATABASE_PATH", str(database))
 
     from app.billing import BillingStore
     from app.config import Settings

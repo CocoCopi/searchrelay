@@ -3,9 +3,9 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "searchfetch-api"
-version = "1.0.0"
-description = "DeepSeek-compatible Search and Fetch API for AI agents and RAG"
+name = "searchrelay"
+version = "0.1.0"
+description = "SearchRelay: a DeepSeek-compatible web search and fetch API for AI agents and RAG"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -48,7 +48,7 @@ tracing = [
 ]
 
 [project.scripts]
-searchfetch-export-openapi = "scripts.export_openapi:main"
+searchrelay-export-openapi = "scripts.export_openapi:main"
 searchrelay-admin = "scripts.admin:main"
 
 [tool.setuptools]

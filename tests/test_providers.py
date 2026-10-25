@@ -395,7 +395,7 @@ async def test_provider_request_budget_prevents_extra_upstream_calls() -> None:
 
 
 def test_provider_priorities_are_read_from_the_environment(monkeypatch) -> None:
-    monkeypatch.setenv("SF_PROVIDER_PRIORITIES", "brave,serper")
+    monkeypatch.setenv("SR_PROVIDER_PRIORITIES", "brave,serper")
     monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "brave-secret")
     monkeypatch.setenv("SERPER_API_KEY", "serper-secret")
 

@@ -3,9 +3,9 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    SF_DATABASE_PATH=/data/searchfetch.db \
-    SF_CACHE_DATABASE_PATH=/data/cache.db \
-    SF_LOCAL_INDEX_PATH=/data/local-index.db
+    SR_DATABASE_PATH=/data/searchrelay.db \
+    SR_CACHE_DATABASE_PATH=/data/cache.db \
+    SR_LOCAL_INDEX_PATH=/data/local-index.db
 
 WORKDIR /app
 

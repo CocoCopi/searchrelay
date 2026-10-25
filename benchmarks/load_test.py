@@ -2,7 +2,7 @@
 
 Run against a locally running service::
 
-    export SEARCHFETCH_API_KEY=sk-test
+    export SEARCHRELAY_API_KEY=sk-test
     .venv/bin/locust -f benchmarks/load_test.py --host http://127.0.0.1:8000 \
       --users 20 --spawn-rate 5 --run-time 2m --headless
 
@@ -22,7 +22,7 @@ class SearchRelayUser(HttpUser):
     wait_time = between(0.05, 0.25)
 
     def on_start(self) -> None:
-        api_key = os.getenv("SEARCHFETCH_API_KEY", "sk-test")
+        api_key = os.getenv("SEARCHRELAY_API_KEY", "sk-test")
         self.client.headers.update(
             {
                 "Authorization": f"Bearer {api_key}",

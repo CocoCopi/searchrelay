@@ -7,8 +7,8 @@ Manage API keys, account budgets, and usage:
     searchrelay-admin usage --account demo
     searchrelay-admin list-keys
 
-The CLI reads the same environment variables as the service (``SF_KEYS_FILE``,
-``SF_DATABASE_PATH``, ``SF_REDIS_URL``). Keys and balances are written to the
+The CLI reads the same environment variables as the service (``SR_KEYS_FILE``,
+``SR_DATABASE_PATH``, ``SR_REDIS_URL``). Keys and balances are written to the
 keys file in the format the service loads at startup.
 """
 

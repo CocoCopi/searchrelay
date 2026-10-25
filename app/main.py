@@ -232,7 +232,7 @@ def create_app(
                 await client.aclose()
 
     app = FastAPI(
-        title="Search & Fetch API",
+        title="SearchRelay",
         version=runtime_settings.service_version,
         description=(
             "Search and web-fetch tools for AI agents and retrieval-augmented generation. "
@@ -546,7 +546,7 @@ def _build_cross_encoder(settings: Settings) -> CrossEncoderReranker | None:
     if model_path is None:
         raise RuntimeError(
             "SearchRelay startup configuration error: "
-            "SF_RERANK_CROSS_ENCODER_MODEL is required when the cross-encoder is enabled"
+            "SR_RERANK_CROSS_ENCODER_MODEL is required when the cross-encoder is enabled"
         )
     try:
         return CrossEncoderReranker(
@@ -584,7 +584,7 @@ async def _ensure_balance(billing: BillingService, account_id: str) -> None:
 
 
 async def _build_redis_client(settings: Settings) -> Any | None:
-    """Create the shared Redis client when ``SF_REDIS_URL`` is configured."""
+    """Create the shared Redis client when ``SR_REDIS_URL`` is configured."""
 
     if not settings.redis_url:
         return None
@@ -592,9 +592,9 @@ async def _build_redis_client(settings: Settings) -> Any | None:
         from redis.asyncio import Redis
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise RuntimeError(
-            "SearchRelay startup configuration error: SF_REDIS_URL is set but the "
+            "SearchRelay startup configuration error: SR_REDIS_URL is set but the "
             "'redis' package is not installed. Install it with: "
-            "pip install 'searchfetch-api[redis]'"
+            "pip install 'searchrelay[redis]'"
         ) from exc
     client = Redis.from_url(settings.redis_url, decode_responses=True)
     try:

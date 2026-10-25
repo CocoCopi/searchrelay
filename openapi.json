@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Search & Fetch API",
+    "title": "SearchRelay",
     "description": "Search and web-fetch tools for AI agents and retrieval-augmented generation. The public contract is compatible with the DeepSeek Search API shape.",
-    "version": "1.0.0"
+    "version": "0.1.0"
   },
   "paths": {
     "/v1/tools/search": {

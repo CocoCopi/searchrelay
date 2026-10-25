@@ -6,12 +6,12 @@ SearchRelay is an orchestration and retrieval layer. It does **not** own, crawl,
 
 | Provider | Integration | Credentials | Notes |
 |---|---|---|---|
-| SearXNG | User-run self-hosted instance | `SF_UPSTREAM_URL` | JSON API; the operator controls routing, engines, rate limits, and compliance. |
+| SearXNG | User-run self-hosted instance | `SR_UPSTREAM_URL` | JSON API; the operator controls routing, engines, rate limits, and compliance. |
 | Brave Search API | Official JSON API | `BRAVE_SEARCH_API_KEY` | Uses the official Brave Search endpoint; a Brave subscription and accepted API terms are required. |
 | Serper | Official Serper JSON API | `SERPER_API_KEY` | Uses Serper's API rather than scraping Google HTML. Serper and underlying engine terms still apply. |
 | Tavily | Official JSON API | `TAVILY_API_KEY` | Uses Tavily's official search endpoint. |
 | Exa | Official JSON API | `EXA_API_KEY` | Uses Exa's official search endpoint. |
-| Local index | Optional private corpus | `SF_LOCAL_INDEX_PATH` | Searches only user-supplied sites and documents; it is not a web index. See [`local-index.md`](local-index.md). |
+| Local index | Optional private corpus | `SR_LOCAL_INDEX_PATH` | Searches only user-supplied sites and documents; it is not a web index. See [`local-index.md`](local-index.md). |
 
 SearchRelay never scrapes Google, Bing, or Brave HTML result pages.
 
@@ -26,9 +26,9 @@ A self-hosted SearXNG instance can reduce vendor lock-in and API cost, but it do
 Without a provider configuration file, only SearXNG is enabled:
 
 ```bash
-export SF_UPSTREAM_URL='http://searxng:8080'
-export SF_PROVIDER_PRIORITIES='searxng'
-export SF_API_KEYS_JSON='{"your-generated-api-key":"account-id"}'
+export SR_UPSTREAM_URL='http://searxng:8080'
+export SR_PROVIDER_PRIORITIES='searxng'
+export SR_API_KEYS_JSON='{"your-generated-api-key":"account-id"}'
 ```
 
 To federate official APIs, set their key environment variables and list the providers in priority order:
@@ -38,10 +38,10 @@ export BRAVE_SEARCH_API_KEY='...'
 export SERPER_API_KEY='...'
 export TAVILY_API_KEY='...'
 export EXA_API_KEY='...'
-export SF_PROVIDER_PRIORITIES='searxng,brave,serper,tavily,exa'
+export SR_PROVIDER_PRIORITIES='searxng,brave,serper,tavily,exa'
 ```
 
-For budgets and provider-specific settings, create a JSON file and set `SF_PROVIDER_CONFIG_FILE`:
+For budgets and provider-specific settings, create a JSON file and set `SR_PROVIDER_CONFIG_FILE`:
 
 ```json
 {
@@ -88,7 +88,7 @@ Each provider has independent limits:
 - `max_results` caps candidates accepted from that provider before fusion.
 - `timeout_seconds` applies to each provider attempt.
 
-Global resilience settings are configured with `SF_PROVIDER_RETRY_ATTEMPTS`, `SF_PROVIDER_RETRY_BASE_DELAY_SECONDS`, `SF_PROVIDER_CIRCUIT_FAILURE_THRESHOLD`, and `SF_PROVIDER_CIRCUIT_RESET_SECONDS`.
+Global resilience settings are configured with `SR_PROVIDER_RETRY_ATTEMPTS`, `SR_PROVIDER_RETRY_BASE_DELAY_SECONDS`, `SR_PROVIDER_CIRCUIT_FAILURE_THRESHOLD`, and `SR_PROVIDER_CIRCUIT_RESET_SECONDS`.
 
 A circuit opens after the configured number of failed logical provider calls. While open, calls fail fast until the reset interval; then one half-open probe is allowed. Retries use bounded exponential backoff with full jitter.
 

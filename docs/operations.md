@@ -43,22 +43,22 @@ generated.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SF_LOG_JSON` | `true` | Emit JSON lines instead of plain text |
-| `SF_LOG_LEVEL` | `INFO` | Root log level |
+| `SR_LOG_JSON` | `true` | Emit JSON lines instead of plain text |
+| `SR_LOG_LEVEL` | `INFO` | Root log level |
 
 ## Tracing
 
 OpenTelemetry tracing is off by default. Enable it with:
 
 ```bash
-SF_TRACING_ENABLED=true
-SF_OTEL_SERVICE_NAME=searchrelay
-SF_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
+SR_TRACING_ENABLED=true
+SR_OTEL_SERVICE_NAME=searchrelay
+SR_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces
 ```
 
 Each HTTP request produces one `http.request` span with the request method,
 path, and request id. When no OTLP endpoint is configured, spans are created
-but not exported. Install the extra with `pip install "searchfetch-api[tracing]"`.
+but not exported. Install the extra with `pip install "searchrelay[tracing]"`.
 
 ## Shared rate limiting and billing (Redis)
 
@@ -66,10 +66,10 @@ A single replica keeps rate limits in memory and balances in SQLite. To run
 several replicas, point them at the same Redis:
 
 ```bash
-SF_REDIS_URL=redis://redis:6379/0
+SR_REDIS_URL=redis://redis:6379/0
 ```
 
-With `SF_REDIS_URL` set:
+With `SR_REDIS_URL` set:
 
 - the account and per-domain rate limiters use an atomic Redis sliding window,
   so the limit applies across replicas;
@@ -77,11 +77,11 @@ With `SF_REDIS_URL` set:
   atomic Lua script, so two replicas cannot oversell the same account;
 - the SQLite ledger is no longer authoritative for balances.
 
-Install the extra with `pip install "searchfetch-api[redis]"`. If Redis is
+Install the extra with `pip install "searchrelay[redis]"`. If Redis is
 unreachable at startup the service fails fast with a clear error instead of
 silently degrading to per-replica state.
 
-The SQLite billing database is still used when `SF_REDIS_URL` is unset.
+The SQLite billing database is still used when `SR_REDIS_URL` is unset.
 
 ## Admin CLI
 
@@ -97,7 +97,7 @@ The SQLite billing database is still used when `SF_REDIS_URL` is unset.
 | `list-keys` | List accounts, masked keys, and balances |
 
 Balances are integer micro-US dollars (1 USD = 1,000,000 units). The CLI reads
-`SF_KEYS_FILE`, `SF_DATABASE_PATH`, and `SF_REDIS_URL` from the environment, so
+`SR_KEYS_FILE`, `SR_DATABASE_PATH`, and `SR_REDIS_URL` from the environment, so
 it operates on the same files the service loads. The service reads the keys
 file at startup, so restart it (or reload the file) after `create-key`.
 
@@ -120,9 +120,9 @@ check that calls `/healthz`:
 ```bash
 docker build -t searchrelay:local .
 docker run --rm -p 8000:8000 \
-  -e SF_API_KEYS_JSON='{"sk-test":"demo"}' \
-  -e SF_INITIAL_BALANCES_JSON='{"demo":100000000}' \
-  -e SF_UPSTREAM_URL=http://host.docker.internal:8080 \
+  -e SR_API_KEYS_JSON='{"sk-test":"demo"}' \
+  -e SR_INITIAL_BALANCES_JSON='{"demo":100000000}' \
+  -e SR_UPSTREAM_URL=http://host.docker.internal:8080 \
   searchrelay:local
 ```
 
@@ -130,8 +130,8 @@ docker run --rm -p 8000:8000 \
 
 ```bash
 export SEARXNG_SECRET="$(openssl rand -hex 32)"
-export SF_API_KEYS_JSON='{"sk-test":"demo"}'
-export SF_INITIAL_BALANCES_JSON='{"demo":100000000}'
+export SR_API_KEYS_JSON='{"sk-test":"demo"}'
+export SR_INITIAL_BALANCES_JSON='{"demo":100000000}'
 docker compose up --build
 ```
 

@@ -2,7 +2,7 @@
 
 The integration is optional. Install the extra with::
 
-    pip install "searchfetch-python[langchain]"
+    pip install "searchrelay-python[langchain]"
 
 The tools return plain text. Every line is untrusted third-party content, so
 the tool descriptions tell the agent model to treat the output as data.
@@ -12,11 +12,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from .client import APIError, SearchFetchClient
+from .client import APIError, SearchRelayClient
 
 _IMPORT_ERROR = (
     "The LangChain integration requires langchain-core. "
-    "Install it with: pip install 'searchfetch-python[langchain]'"
+    "Install it with: pip install 'searchrelay-python[langchain]'"
 )
 
 SEARCH_TOOL_DESCRIPTION = (
@@ -41,7 +41,7 @@ def _structured_tool_class() -> Any:
 
 
 def searchrelay_search_tool(
-    client: SearchFetchClient | None = None,
+    client: SearchRelayClient | None = None,
     *,
     base_url: str = "http://localhost:8000",
     api_key: str = "",
@@ -49,7 +49,7 @@ def searchrelay_search_tool(
 ) -> Any:
     """Return a LangChain tool that searches the web through SearchRelay."""
 
-    active = client or SearchFetchClient(base_url=base_url, api_key=api_key)
+    active = client or SearchRelayClient(base_url=base_url, api_key=api_key)
 
     def search(query: str, count: int = count) -> str:
         """Search the web.
@@ -81,14 +81,14 @@ def searchrelay_search_tool(
 
 
 def searchrelay_fetch_tool(
-    client: SearchFetchClient | None = None,
+    client: SearchRelayClient | None = None,
     *,
     base_url: str = "http://localhost:8000",
     api_key: str = "",
 ) -> Any:
     """Return a LangChain tool that fetches a URL through SearchRelay."""
 
-    active = client or SearchFetchClient(base_url=base_url, api_key=api_key)
+    active = client or SearchRelayClient(base_url=base_url, api_key=api_key)
 
     def fetch(url: str) -> str:
         """Fetch a web page.

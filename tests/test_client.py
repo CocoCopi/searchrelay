@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "clients" / "python"))
 
-from searchfetch import APIError, SearchFetchClient  # noqa: E402
+from searchrelay import APIError, SearchRelayClient  # noqa: E402
 
 
 def test_python_client_retries_server_error_then_succeeds(monkeypatch) -> None:
@@ -42,8 +42,8 @@ def test_python_client_retries_server_error_then_succeeds(monkeypatch) -> None:
             },
         )
 
-    monkeypatch.setattr("searchfetch.client._sleep_before_retry", lambda *_: None)
-    client = SearchFetchClient(
+    monkeypatch.setattr("searchrelay.client._sleep_before_retry", lambda *_: None)
+    client = SearchRelayClient(
         "http://api.test",
         "key",
         max_retries=2,
@@ -67,7 +67,7 @@ def test_python_client_does_not_retry_non_retryable_4xx() -> None:
             json={"error": {"message": "bad", "type": "invalid_request_error", "param": None, "code": "invalid_request"}},
         )
 
-    client = SearchFetchClient(
+    client = SearchRelayClient(
         "http://api.test",
         "key",
         max_retries=3,

@@ -1,3 +1,3 @@
-module github.com/searchfetch/searchfetch-go
+module github.com/searchrelay/searchrelay-go
 
 go 1.22

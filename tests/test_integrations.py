@@ -8,19 +8,19 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "clients" / "python"))
 
-from searchfetch import SearchFetchClient  # noqa: E402
-from searchfetch.langchain import (  # noqa: E402
+from searchrelay import SearchRelayClient  # noqa: E402
+from searchrelay.langchain import (  # noqa: E402
     searchrelay_fetch_tool,
     searchrelay_search_tool,
 )
-from searchfetch.llama_index import SearchRelayReader, load_documents  # noqa: E402
+from searchrelay.llama_index import SearchRelayReader, load_documents  # noqa: E402
 
 langchain_core = pytest.importorskip("langchain_core", reason="langchain-core is optional")
 llama_index_core = pytest.importorskip("llama_index.core", reason="llama-index-core is optional")
 
 
-def _client(handler) -> SearchFetchClient:
-    return SearchFetchClient(
+def _client(handler) -> SearchRelayClient:
+    return SearchRelayClient(
         "http://api.test",
         "sk-test",
         transport=httpx.MockTransport(handler),

@@ -6,8 +6,8 @@ Run it with:
     streamlit run examples/streamlit_app.py
 
 Environment:
-  SEARCHFETCH_BASE_URL (default http://localhost:8000)
-  SEARCHFETCH_API_KEY   (required for a real server)
+  SEARCHRELAY_BASE_URL (default http://localhost:8000)
+  SEARCHRELAY_API_KEY   (required for a real server)
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "clients" / "python"))
 
-from searchfetch import APIError, SearchFetchClient  # noqa: E402
+from searchrelay import APIError, SearchRelayClient  # noqa: E402
 
 try:
     import streamlit as st
@@ -40,10 +40,10 @@ def render() -> None:
         "untrusted third-party data."
     )
 
-    base_url = os.environ.get("SEARCHFETCH_BASE_URL", "http://localhost:8000")
-    api_key = os.environ.get("SEARCHFETCH_API_KEY", "")
+    base_url = os.environ.get("SEARCHRELAY_BASE_URL", "http://localhost:8000")
+    api_key = os.environ.get("SEARCHRELAY_API_KEY", "")
     if not api_key:
-        st.warning("Set SEARCHFETCH_API_KEY to query a real SearchRelay server.")
+        st.warning("Set SEARCHRELAY_API_KEY to query a real SearchRelay server.")
 
     query = st.text_input("Query", value="", placeholder="site:python.org asyncio")
     count = st.slider("Results", min_value=1, max_value=20, value=5)
@@ -53,7 +53,7 @@ def render() -> None:
         return
 
     try:
-        with SearchFetchClient(base_url=base_url, api_key=api_key) as client:
+        with SearchRelayClient(base_url=base_url, api_key=api_key) as client:
             results = client.search(query.strip(), count=count, need_content=need_content)
     except APIError as exc:
         st.error(f"Search failed: {exc}")

@@ -122,7 +122,7 @@ A user-owned corpus should be split into independently scalable planes. SearchRe
 ### 1. Crawler
 
 - Seed from Common Crawl and curated/trending feeds.
-- Identify as `DeepSeekBot/1.0` and obey robots.txt.
+- Identify as `SearchRelayBot/1.0` and obey robots.txt.
 - Use a per-site crawl quota and host-level politeness delay.
 - Store raw response metadata separately from extracted content.
 - Use a frontier with retry budgets, circuit breakers, and per-tenant backpressure.
@@ -195,4 +195,4 @@ The included limiter is process-local and the ledger is SQLite-backed. That is a
 
 The public behavior—independent account Search/Fetch QPS and global per-domain Fetch throttling—can remain unchanged.
 
-The response cache is deliberately two-tier: the in-process LRU absorbs the hot path, while the SQLite tier can be placed on a shared volume. A Redis-backed limiter, ledger, and cache are configured through `SF_REDIS_URL` when the deployment runs more than one replica.
+The response cache is deliberately two-tier: the in-process LRU absorbs the hot path, while the SQLite tier can be placed on a shared volume. A Redis-backed limiter, ledger, and cache are configured through `SR_REDIS_URL` when the deployment runs more than one replica.

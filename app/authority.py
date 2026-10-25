@@ -2,7 +2,7 @@
 
 The tier of a result domain is a transparent heuristic, not an audited trust
 score. The list is operator-controlled: copy ``config/authority.yaml``, edit
-it, and point ``SF_AUTHORITY_CONFIG_FILE`` at the copy.
+it, and point ``SR_AUTHORITY_CONFIG_FILE`` at the copy.
 
 Schema::
 

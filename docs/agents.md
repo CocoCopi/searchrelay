@@ -102,9 +102,9 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
 ```
 
 ```python
-from searchfetch import SearchFetchClient
+from searchrelay import SearchRelayClient
 
-with SearchFetchClient("http://localhost:8000", api_key) as client:
+with SearchRelayClient("http://localhost:8000", api_key) as client:
     results = client.search("FastAPI asyncio", count=5)
     page = client.fetch(results[0].url)
 ```
@@ -134,7 +134,7 @@ const page = await client.fetch(results[0].url);
 ```
 
 ```python
-from searchfetch.langchain import searchrelay_fetch_tool, searchrelay_search_tool
+from searchrelay.langchain import searchrelay_fetch_tool, searchrelay_search_tool
 
 tools = [searchrelay_search_tool(base_url="http://localhost:8000", api_key=api_key),
          searchrelay_fetch_tool(base_url="http://localhost:8000", api_key=api_key)]
@@ -151,7 +151,7 @@ when you wrap the tool for your own agent framework.
 ```
 
 ```python
-from searchfetch.llama_index import SearchRelayReader
+from searchrelay.llama_index import SearchRelayReader
 
 reader = SearchRelayReader(base_url="http://localhost:8000", api_key=api_key)
 documents = reader.load_data(["https://example.com/docs"])

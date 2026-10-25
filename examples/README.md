@@ -6,8 +6,8 @@ answer.
 
 ```bash
 .venv/bin/pip install -e clients/python
-export SEARCHFETCH_BASE_URL=http://localhost:8000
-export SEARCHFETCH_API_KEY=sk-your-key
+export SEARCHRELAY_BASE_URL=http://localhost:8000
+export SEARCHRELAY_API_KEY=sk-your-key
 export ANSWER_API_URL=https://your-endpoint/v1/chat/completions
 export ANSWER_API_KEY=sk-your-answer-key
 export ANSWER_MODEL=your-model

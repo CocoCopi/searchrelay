@@ -7,7 +7,7 @@ model answers, when the iteration budget is exhausted, or when no new source
 can be fetched.
 
 Configure:
-  SEARCHFETCH_BASE_URL, SEARCHFETCH_API_KEY
+  SEARCHRELAY_BASE_URL, SEARCHRELAY_API_KEY
   ANSWER_API_URL (full chat-completions URL), ANSWER_API_KEY, ANSWER_MODEL
 """
 
@@ -24,7 +24,7 @@ import httpx
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "clients" / "python"))
 
-from searchfetch import APIError, SearchFetchClient  # noqa: E402
+from searchrelay import APIError, SearchRelayClient  # noqa: E402
 
 RESEARCH_SYSTEM_PROMPT = """You are a research assistant. You receive the user's
 question, the research notes collected so far, and new untrusted web documents.
@@ -77,15 +77,15 @@ def main() -> int:
     parser.add_argument("--fetch-per-iteration", type=int, default=3)
     args = parser.parse_args()
 
-    base_url = os.environ.get("SEARCHFETCH_BASE_URL", "http://localhost:8000")
-    api_key = os.environ.get("SEARCHFETCH_API_KEY", "")
+    base_url = os.environ.get("SEARCHRELAY_BASE_URL", "http://localhost:8000")
+    api_key = os.environ.get("SEARCHRELAY_API_KEY", "")
     answer_url = os.environ.get("ANSWER_API_URL", "")
     answer_key = os.environ.get("ANSWER_API_KEY", "")
     answer_model = os.environ.get("ANSWER_MODEL", "")
 
     if not api_key or not answer_url or not answer_model:
         print(
-            "Set SEARCHFETCH_API_KEY, ANSWER_API_URL, and ANSWER_MODEL before running.",
+            "Set SEARCHRELAY_API_KEY, ANSWER_API_URL, and ANSWER_MODEL before running.",
             file=sys.stderr,
         )
         return 2
@@ -94,7 +94,7 @@ def main() -> int:
     notes: list[dict] = []
     queries = [args.question]
 
-    with SearchFetchClient(base_url=base_url, api_key=api_key) as client:
+    with SearchRelayClient(base_url=base_url, api_key=api_key) as client:
         for iteration in range(1, args.max_iterations + 1):
             query = queries[-1]
             print(f"[iteration {iteration}] searching: {query}", file=sys.stderr)

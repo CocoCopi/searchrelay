@@ -41,7 +41,7 @@ class ValidatedURL:
 
     @property
     def robot_product(self) -> str:
-        return "DeepSeekBot"
+        return "SearchRelayBot"
 
 
 class URLValidationError(ValueError):

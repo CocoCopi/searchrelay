@@ -58,28 +58,28 @@ services:
       redis:
         condition: service_healthy
     environment:
-      SF_UPSTREAM_URL: http://searxng:8080
-      SF_API_KEYS_JSON: '${SF_API_KEYS_JSON:?Set SF_API_KEYS_JSON in .env}'
-      SF_INITIAL_BALANCES_JSON: '${SF_INITIAL_BALANCES_JSON:?Set SF_INITIAL_BALANCES_JSON in .env}'
-      SF_DATABASE_PATH: /data/searchfetch.db
-      SF_CACHE_DATABASE_PATH: /data/cache.db
-      SF_LOCAL_INDEX_PATH: /data/local-index.db
-      SF_REDIS_URL: redis://redis:6379/0
-      SF_LOG_JSON: "true"
-      SF_SEARCH_QPS: ${SF_SEARCH_QPS:-100}
-      SF_FETCH_QPS: ${SF_FETCH_QPS:-25}
-      SF_FETCH_DOMAIN_QPS: ${SF_FETCH_DOMAIN_QPS:-5}
-      SF_PROVIDER_PRIORITIES: ${SF_PROVIDER_PRIORITIES:-searxng}
+      SR_UPSTREAM_URL: http://searxng:8080
+      SR_API_KEYS_JSON: '${SR_API_KEYS_JSON:?Set SR_API_KEYS_JSON in .env}'
+      SR_INITIAL_BALANCES_JSON: '${SR_INITIAL_BALANCES_JSON:?Set SR_INITIAL_BALANCES_JSON in .env}'
+      SR_DATABASE_PATH: /data/searchrelay.db
+      SR_CACHE_DATABASE_PATH: /data/cache.db
+      SR_LOCAL_INDEX_PATH: /data/local-index.db
+      SR_REDIS_URL: redis://redis:6379/0
+      SR_LOG_JSON: "true"
+      SR_SEARCH_QPS: ${SR_SEARCH_QPS:-100}
+      SR_FETCH_QPS: ${SR_FETCH_QPS:-25}
+      SR_FETCH_DOMAIN_QPS: ${SR_FETCH_DOMAIN_QPS:-5}
+      SR_PROVIDER_PRIORITIES: ${SR_PROVIDER_PRIORITIES:-searxng}
       BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
       SERPER_API_KEY: ${SERPER_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       EXA_API_KEY: ${EXA_API_KEY:-}
     volumes:
-      - searchfetch-data:/data
+      - searchrelay-data:/data
     ports:
       - "8000:8000"
 
 volumes:
-  searchfetch-data:
+  searchrelay-data:
   searxng-cache:
   redis-data:

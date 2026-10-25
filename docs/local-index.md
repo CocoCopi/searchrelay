@@ -61,8 +61,8 @@ validated address, and every redirect is revalidated.
 ## Enable the provider
 
 ```bash
-export SF_PROVIDER_PRIORITIES='local,searxng'
-export SF_LOCAL_INDEX_PATH='data/local-index.db'
+export SR_PROVIDER_PRIORITIES='local,searxng'
+export SR_LOCAL_INDEX_PATH='data/local-index.db'
 ```
 
 Or pin the path in the provider configuration file:

@@ -1,7 +1,7 @@
 # Authority tiers for SearchRelay.
 #
 # The tier is a transparent, operator-controlled heuristic, not an audited
-# trust score. Copy this file, edit it, and point SF_AUTHORITY_CONFIG_FILE at
+# trust score. Copy this file, edit it, and point SR_AUTHORITY_CONFIG_FILE at
 # your copy to extend or replace the lists.
 #
 # - tiers: domain -> tier. A host matches when it equals the domain or is a

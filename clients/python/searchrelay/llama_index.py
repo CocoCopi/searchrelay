@@ -2,7 +2,7 @@
 
 The integration is optional. Install the extra with::
 
-    pip install "searchfetch-python[llamaindex]"
+    pip install "searchrelay-python[llamaindex]"
 
 The reader turns one or more URLs into LlamaIndex ``Document`` objects. The
 document text is untrusted third-party content.
@@ -13,11 +13,11 @@ from __future__ import annotations
 import importlib
 from typing import Any, Iterable, List
 
-from .client import APIError, SearchFetchClient
+from .client import APIError, SearchRelayClient
 
 _IMPORT_ERROR_MESSAGE = (
     "The LlamaIndex integration requires llama-index-core. "
-    "Install it with: pip install 'searchfetch-python[llamaindex]'"
+    "Install it with: pip install 'searchrelay-python[llamaindex]'"
 )
 
 class _MissingBaseReader:
@@ -45,14 +45,14 @@ if _IMPORT_ERROR is None:
 
         def __init__(
             self,
-            client: SearchFetchClient | None = None,
+            client: SearchRelayClient | None = None,
             *,
             base_url: str = "http://localhost:8000",
             api_key: str = "",
             max_pages: int = 10,
             skip_errors: bool = True,
         ) -> None:
-            self._client = client or SearchFetchClient(base_url=base_url, api_key=api_key)
+            self._client = client or SearchRelayClient(base_url=base_url, api_key=api_key)
             self._max_pages = max(1, int(max_pages))
             self._skip_errors = skip_errors
 
@@ -90,7 +90,7 @@ else:  # pragma: no cover - depends on the environment
 def load_documents(
     urls: List[str],
     *,
-    client: SearchFetchClient | None = None,
+    client: SearchRelayClient | None = None,
     base_url: str = "http://localhost:8000",
     api_key: str = "",
     max_pages: int = 10,

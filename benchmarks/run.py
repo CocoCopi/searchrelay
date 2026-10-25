@@ -50,7 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--providers",
-        default=os.getenv("SF_PROVIDER_PRIORITIES", "searxng"),
+        default=os.getenv("SR_PROVIDER_PRIORITIES", "searxng"),
         help="Comma-separated providers to measure",
     )
     parser.add_argument("--count", type=int, default=10, help="Results requested per query")
@@ -75,7 +75,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--searxng-url",
         default=None,
-        help="Override SF_UPSTREAM_URL for the SearXNG provider",
+        help="Override SR_UPSTREAM_URL for the SearXNG provider",
     )
     parser.add_argument(
         "--self-test",
@@ -105,7 +105,7 @@ async def run(args: argparse.Namespace, arguments: Sequence[str]) -> int:
         raise SystemExit("--retries must be at least 1")
 
     settings = Settings(
-        upstream_url=args.searxng_url or os.getenv("SF_UPSTREAM_URL", "http://searxng:8080"),
+        upstream_url=args.searxng_url or os.getenv("SR_UPSTREAM_URL", "http://searxng:8080"),
         provider_priorities=",".join(provider_names),
     )
     retry_attempts = args.retries or settings.provider_retry_attempts

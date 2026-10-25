@@ -1,4 +1,4 @@
-package searchfetch
+package searchrelay
 
 import (
 	"bytes"
@@ -17,7 +17,7 @@ import (
 
 const defaultBaseURL = "http://localhost:8000"
 
-// APIError is a structured error returned by the Search & Fetch API.
+// APIError is a structured error returned by the SearchRelay.
 type APIError struct {
 	StatusCode int
 	Message    string
@@ -58,7 +58,7 @@ type SearchOptions struct {
 	NeedContent  bool
 }
 
-// Client calls the Search & Fetch API.
+// Client calls the SearchRelay.
 type Client struct {
 	BaseURL    string
 	APIKey     string

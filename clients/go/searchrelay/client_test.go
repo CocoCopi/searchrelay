@@ -1,4 +1,4 @@
-package searchfetch
+package searchrelay
 
 import (
 	"context"

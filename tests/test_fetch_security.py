@@ -167,7 +167,7 @@ async def test_robots_denial_returns_404(tmp_path):
         if request.url.path == "/robots.txt":
             return httpx.Response(
                 200,
-                text="User-agent: DeepSeekBot\nDisallow: /private\n",
+                text="User-agent: SearchRelayBot\nDisallow: /private\n",
                 headers={"content-type": "text/plain"},
             )
         return httpx.Response(200, text="private content")

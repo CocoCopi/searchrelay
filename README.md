@@ -1,4 +1,4 @@
-# Search & Fetch API
+# SearchRelay
 
 A DeepSeek Search API-compatible web search and page-fetch service for AI agents and RAG. The service is implemented in **Python + FastAPI** and ships with equivalent **Python and Go clients**.
 
@@ -32,7 +32,7 @@ The API, ranking, summarization, security, billing, and client layers are indepe
 - Operator-controlled authority tiers in YAML, plus an optional local ONNX cross-encoder reranker (experimental, off by default) that blends into `rerank_score`.
 - Every response carries `X-Content-Untrusted: true`; the OpenAPI document labels each field as untrusted third-party content.
 - SSRF defense: URL validation, public-IP-only DNS resolution, DNS pinning, redirect revalidation, metadata/private-network blocking, no userinfo, and restricted ports.
-- `robots.txt` support and a `DeepSeekBot/1.0` user agent.
+- `robots.txt` support and a `SearchRelayBot/1.0` user agent.
 - Account-level, independently tracked Search (100 QPS) and Fetch (25 QPS) sliding-window limits, plus a per-domain Fetch limit.
 - Durable account balances and atomic billing in SQLite.
 - OpenAPI 3.1 document at [`openapi.json`](openapi.json) and the live `/openapi.json` endpoint.
@@ -57,7 +57,7 @@ Unknown request fields are ignored.
 
 ```bash
 curl -sS http://localhost:8000/v1/tools/search \
-  -H "Authorization: Bearer $SEARCHFETCH_API_KEY" \
+  -H "Authorization: Bearer $SEARCHRELAY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "site:python.org asyncio -threading",
@@ -111,7 +111,7 @@ No matches return HTTP 200 with `{"results": []}`. Successful responses include 
 
 ```bash
 curl -sS http://localhost:8000/v1/tools/search/batch \
-  -H "Authorization: Bearer $SEARCHFETCH_API_KEY" \
+  -H "Authorization: Bearer $SEARCHRELAY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"queries":["fastapi background tasks","python asyncio tutorial"],"count":5}'
 ```
@@ -141,7 +141,7 @@ curl -sS http://localhost:8000/v1/tools/search/batch \
 
 ```bash
 curl -sS http://localhost:8000/v1/tools/fetch \
-  -H "Authorization: Bearer $SEARCHFETCH_API_KEY" \
+  -H "Authorization: Bearer $SEARCHRELAY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com/article"}'
 ```
@@ -202,17 +202,17 @@ Both SDKs retry HTTP 408, 429, and 5xx responses with bounded exponential backof
 1. Generate local credentials (there is no built-in default API key or SearXNG secret):
 
    ```bash
-   export SEARCHFETCH_API_KEY="sk-$(openssl rand -hex 24)"
+   export SEARCHRELAY_API_KEY="sk-$(openssl rand -hex 24)"
    export SEARXNG_SECRET="$(openssl rand -hex 32)"
    cat > .env <<EOF
-   SEARCHFETCH_API_KEY=$SEARCHFETCH_API_KEY
+   SEARCHRELAY_API_KEY=$SEARCHRELAY_API_KEY
    SEARXNG_SECRET=$SEARXNG_SECRET
-   SF_API_KEYS_JSON={"$SEARCHFETCH_API_KEY":"local-demo"}
-   SF_INITIAL_BALANCES_JSON={"local-demo":100000000}
+   SR_API_KEYS_JSON={"$SEARCHRELAY_API_KEY":"local-demo"}
+   SR_INITIAL_BALANCES_JSON={"local-demo":100000000}
    EOF
    ```
 
-   `SF_INITIAL_BALANCES_JSON` values are micro-US dollars. The example starts with $100. Keep `.env` out of version control and rotate credentials before exposing the service.
+   `SR_INITIAL_BALANCES_JSON` values are micro-US dollars. The example starts with $100. Keep `.env` out of version control and rotate credentials before exposing the service.
 
 2. Start the API and SearXNG:
 
@@ -238,14 +238,14 @@ SearXNG must be running and its JSON output format enabled. The included [`deplo
 ```bash
 python3.12 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
-export SEARCHFETCH_API_KEY="sk-$(openssl rand -hex 24)"
-export SF_API_KEYS_JSON="{\"$SEARCHFETCH_API_KEY\":\"local-demo\"}"
-export SF_INITIAL_BALANCES_JSON='{"local-demo":100000000}'
-export SF_UPSTREAM_URL='http://localhost:8080'
+export SEARCHRELAY_API_KEY="sk-$(openssl rand -hex 24)"
+export SR_API_KEYS_JSON="{\"$SEARCHRELAY_API_KEY\":\"local-demo\"}"
+export SR_INITIAL_BALANCES_JSON='{"local-demo":100000000}'
+export SR_UPSTREAM_URL='http://localhost:8080'
 .venv/bin/uvicorn app.main:app --reload
 ```
 
-For multiple keys, set `SF_KEYS_FILE` to a JSON file:
+For multiple keys, set `SR_KEYS_FILE` to a JSON file:
 
 ```json
 {
@@ -264,58 +264,58 @@ Environment-provided key and balance mappings override file values.
 
 ## Configuration
 
-Official provider credentials use their service-standard environment variables: `BRAVE_SEARCH_API_KEY`, `SERPER_API_KEY`, `TAVILY_API_KEY`, and `EXA_API_KEY`. Only providers listed in `SF_PROVIDER_PRIORITIES` are queried.
+Official provider credentials use their service-standard environment variables: `BRAVE_SEARCH_API_KEY`, `SERPER_API_KEY`, `TAVILY_API_KEY`, and `EXA_API_KEY`. Only providers listed in `SR_PROVIDER_PRIORITIES` are queried.
 
-All settings use the `SF_` prefix.
+All settings use the `SR_` prefix.
 
 | Variable | Default | Purpose |
 |---|---:|---|
-| `SF_UPSTREAM_URL` | `http://searxng:8080` | SearXNG base URL |
-| `SF_UPSTREAM_TIMEOUT_SECONDS` | `10` | SearXNG provider timeout |
-| `SF_PROVIDER_PRIORITIES` | `searxng` | Comma-separated enabled provider priorities |
-| `SF_PROVIDER_CONFIG_FILE` | unset | Optional JSON file for provider budgets and settings |
-| `SF_PROVIDER_RETRY_ATTEMPTS` | `2` | Attempts per provider search, including the first |
-| `SF_PROVIDER_RETRY_BASE_DELAY_SECONDS` | `0.15` | Full-jitter exponential retry base delay |
-| `SF_PROVIDER_CIRCUIT_FAILURE_THRESHOLD` | `5` | Failed logical calls before a circuit opens |
-| `SF_PROVIDER_CIRCUIT_RESET_SECONDS` | `30` | Delay before a half-open circuit probe |
-| `SF_PROVIDER_RRF_K` | `60` | Reciprocal Rank Fusion constant |
-| `SF_DATABASE_PATH` | `data/searchfetch.db` | Billing ledger path |
-| `SF_CACHE_ENABLED` | `true` | Enable the two-tier cache |
-| `SF_CACHE_MEMORY_ENTRIES` | `512` | In-memory LRU capacity |
-| `SF_CACHE_DATABASE_PATH` | `data/cache.db` | SQLite cache tier; unset disables the persistent tier |
-| `SF_CACHE_SEARCH_TTL_SECONDS` | `300` | Search result TTL |
-| `SF_CACHE_FETCH_TTL_SECONDS` | `3600` | HTML/text fetch TTL |
-| `SF_CACHE_PDF_TTL_SECONDS` | `86400` | PDF fetch TTL |
-| `SF_API_KEYS_JSON` | `{}` (startup rejects an empty map) | JSON map of bearer key → account ID |
-| `SF_INITIAL_BALANCES_JSON` | `{}` | JSON map of account ID → micro-US dollars |
-| `SF_KEYS_FILE` | unset | JSON key/balance file |
-| `SF_SEARCH_QPS` | `100` | Account-level Search QPS |
-| `SF_FETCH_QPS` | `25` | Account-level Fetch QPS |
-| `SF_FETCH_DOMAIN_QPS` | `5` | Global per-domain Fetch QPS |
-| `SF_PRICE_MICROS_PER_REQUEST` | `750` | Price for one billable request |
-| `SF_FETCH_MAX_BYTES` | `5242880` | Maximum fetched response size |
-| `SF_FETCH_TIMEOUT_SECONDS` | `12` | Fetch read timeout |
-| `SF_FETCH_MAX_REDIRECTS` | `5` | Redirect limit |
-| `SF_RESPECT_ROBOTS` | `true` | Honor robots.txt |
-| `SF_USER_AGENT` | `DeepSeekBot/1.0` | Fetch user agent |
-| `SF_AUTHORITY_CONFIG_FILE` | `config/authority.yaml` | Authority tier configuration |
-| `SF_LOCAL_INDEX_PATH` | `data/local-index.db` | SQLite path of the optional private local index |
-| `SF_RENDER_JS` | `false` | Enable optional Playwright rendering (experimental) |
-| `SF_RENDER_JS_TIMEOUT_SECONDS` | `15` | JavaScript render timeout |
-| `SF_RERANK_CROSS_ENCODER_ENABLED` | `false` | Enable the optional ONNX cross-encoder (experimental) |
-| `SF_RERANK_CROSS_ENCODER_MODEL` | unset | Model directory with `model.onnx` and `tokenizer.json` |
-| `SF_RERANK_CROSS_ENCODER_WEIGHT` | `0.35` | Blend weight of the cross-encoder score |
-| `SF_BLOCKED_DOMAINS_CSV` | empty | Comma-separated blocked domains |
-| `SF_ALLOWED_DOMAINS_CSV` | empty | Optional comma-separated allowlist |
-| `SF_MAX_REQUEST_BODY_BYTES` | `65536` | Maximum API request size |
-| `SF_METRICS_ENABLED` | `true` | Expose Prometheus metrics on `/metrics` |
-| `SF_LOG_JSON` | `true` | Emit JSON log lines |
-| `SF_LOG_LEVEL` | `INFO` | Root log level |
-| `SF_TRACING_ENABLED` | `false` | Enable OpenTelemetry tracing (experimental) |
-| `SF_OTEL_SERVICE_NAME` | `searchrelay` | Service name reported in spans |
-| `SF_OTEL_EXPORTER_OTLP_ENDPOINT` | unset | OTLP HTTP traces endpoint |
-| `SF_REDIS_URL` | unset | Shared Redis for rate limiting and billing |
-| `SF_REDIS_PREFIX` | `searchrelay` | Redis key prefix |
+| `SR_UPSTREAM_URL` | `http://searxng:8080` | SearXNG base URL |
+| `SR_UPSTREAM_TIMEOUT_SECONDS` | `10` | SearXNG provider timeout |
+| `SR_PROVIDER_PRIORITIES` | `searxng` | Comma-separated enabled provider priorities |
+| `SR_PROVIDER_CONFIG_FILE` | unset | Optional JSON file for provider budgets and settings |
+| `SR_PROVIDER_RETRY_ATTEMPTS` | `2` | Attempts per provider search, including the first |
+| `SR_PROVIDER_RETRY_BASE_DELAY_SECONDS` | `0.15` | Full-jitter exponential retry base delay |
+| `SR_PROVIDER_CIRCUIT_FAILURE_THRESHOLD` | `5` | Failed logical calls before a circuit opens |
+| `SR_PROVIDER_CIRCUIT_RESET_SECONDS` | `30` | Delay before a half-open circuit probe |
+| `SR_PROVIDER_RRF_K` | `60` | Reciprocal Rank Fusion constant |
+| `SR_DATABASE_PATH` | `data/searchrelay.db` | Billing ledger path |
+| `SR_CACHE_ENABLED` | `true` | Enable the two-tier cache |
+| `SR_CACHE_MEMORY_ENTRIES` | `512` | In-memory LRU capacity |
+| `SR_CACHE_DATABASE_PATH` | `data/cache.db` | SQLite cache tier; unset disables the persistent tier |
+| `SR_CACHE_SEARCH_TTL_SECONDS` | `300` | Search result TTL |
+| `SR_CACHE_FETCH_TTL_SECONDS` | `3600` | HTML/text fetch TTL |
+| `SR_CACHE_PDF_TTL_SECONDS` | `86400` | PDF fetch TTL |
+| `SR_API_KEYS_JSON` | `{}` (startup rejects an empty map) | JSON map of bearer key → account ID |
+| `SR_INITIAL_BALANCES_JSON` | `{}` | JSON map of account ID → micro-US dollars |
+| `SR_KEYS_FILE` | unset | JSON key/balance file |
+| `SR_SEARCH_QPS` | `100` | Account-level Search QPS |
+| `SR_FETCH_QPS` | `25` | Account-level Fetch QPS |
+| `SR_FETCH_DOMAIN_QPS` | `5` | Global per-domain Fetch QPS |
+| `SR_PRICE_MICROS_PER_REQUEST` | `750` | Price for one billable request |
+| `SR_FETCH_MAX_BYTES` | `5242880` | Maximum fetched response size |
+| `SR_FETCH_TIMEOUT_SECONDS` | `12` | Fetch read timeout |
+| `SR_FETCH_MAX_REDIRECTS` | `5` | Redirect limit |
+| `SR_RESPECT_ROBOTS` | `true` | Honor robots.txt |
+| `SR_USER_AGENT` | `SearchRelayBot/1.0` | Fetch user agent |
+| `SR_AUTHORITY_CONFIG_FILE` | `config/authority.yaml` | Authority tier configuration |
+| `SR_LOCAL_INDEX_PATH` | `data/local-index.db` | SQLite path of the optional private local index |
+| `SR_RENDER_JS` | `false` | Enable optional Playwright rendering (experimental) |
+| `SR_RENDER_JS_TIMEOUT_SECONDS` | `15` | JavaScript render timeout |
+| `SR_RERANK_CROSS_ENCODER_ENABLED` | `false` | Enable the optional ONNX cross-encoder (experimental) |
+| `SR_RERANK_CROSS_ENCODER_MODEL` | unset | Model directory with `model.onnx` and `tokenizer.json` |
+| `SR_RERANK_CROSS_ENCODER_WEIGHT` | `0.35` | Blend weight of the cross-encoder score |
+| `SR_BLOCKED_DOMAINS_CSV` | empty | Comma-separated blocked domains |
+| `SR_ALLOWED_DOMAINS_CSV` | empty | Optional comma-separated allowlist |
+| `SR_MAX_REQUEST_BODY_BYTES` | `65536` | Maximum API request size |
+| `SR_METRICS_ENABLED` | `true` | Expose Prometheus metrics on `/metrics` |
+| `SR_LOG_JSON` | `true` | Emit JSON log lines |
+| `SR_LOG_LEVEL` | `INFO` | Root log level |
+| `SR_TRACING_ENABLED` | `false` | Enable OpenTelemetry tracing (experimental) |
+| `SR_OTEL_SERVICE_NAME` | `searchrelay` | Service name reported in spans |
+| `SR_OTEL_EXPORTER_OTLP_ENDPOINT` | unset | OTLP HTTP traces endpoint |
+| `SR_REDIS_URL` | unset | Shared Redis for rate limiting and billing |
+| `SR_REDIS_PREFIX` | `searchrelay` | Redis key prefix |
 
 ## Security model
 
@@ -340,9 +340,9 @@ All settings use the `SF_` prefix.
 ```python
 import os
 
-from searchfetch import SearchFetchClient
+from searchrelay import SearchRelayClient
 
-with SearchFetchClient("http://localhost:8000", os.environ["SEARCHFETCH_API_KEY"]) as client:
+with SearchRelayClient("http://localhost:8000", os.environ["SEARCHRELAY_API_KEY"]) as client:
     results = client.search("FastAPI asyncio", count=5)
     page = client.fetch(results[0].url)
 ```
@@ -358,7 +358,7 @@ import { SearchRelayClient } from "searchrelay-sdk";
 
 const client = new SearchRelayClient({
   baseUrl: "http://localhost:8000",
-  apiKey: process.env.SEARCHFETCH_API_KEY,
+  apiKey: process.env.SEARCHRELAY_API_KEY,
 });
 const results = await client.search("FastAPI asyncio", { count: 5 });
 const page = await client.fetch(results[0].url);
@@ -375,8 +375,8 @@ go test ./...
 import "os"
 
 ctx := context.Background()
-client := searchfetch.New("http://localhost:8000", os.Getenv("SEARCHFETCH_API_KEY"))
-results, err := client.Search(ctx, "FastAPI asyncio", searchfetch.SearchOptions{Count: 5})
+client := searchrelay.New("http://localhost:8000", os.Getenv("SEARCHRELAY_API_KEY"))
+results, err := client.Search(ctx, "FastAPI asyncio", searchrelay.SearchOptions{Count: 5})
 page, err := client.Fetch(ctx, results[0].URL)
 ```
 
@@ -455,7 +455,7 @@ See [`docs/benchmarks.md`](docs/benchmarks.md) for the current report and its li
 A Locust load test is included at `benchmarks/load_test.py`:
 
 ```bash
-export SEARCHFETCH_API_KEY=sk-test
+export SEARCHRELAY_API_KEY=sk-test
 .venv/bin/locust -f benchmarks/load_test.py --host http://127.0.0.1:8000 \
   --users 20 --spawn-rate 5 --run-time 2m --headless
 ```

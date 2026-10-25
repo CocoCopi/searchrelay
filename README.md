@@ -36,7 +36,8 @@ The API, ranking, summarization, security, billing, and client layers are indepe
 - Account-level, independently tracked Search (100 QPS) and Fetch (25 QPS) sliding-window limits, plus a per-domain Fetch limit.
 - Durable account balances and atomic billing in SQLite.
 - OpenAPI 3.1 document at [`openapi.json`](openapi.json) and the live `/openapi.json` endpoint.
-- Python and Go SDKs, Docker Compose, tests, and a search → fetch → answer agent example.
+- Python, TypeScript, and Go SDKs, a Model Context Protocol (MCP) server for Claude Desktop, Claude Code, Cursor, and Windsurf, plus LangChain and LlamaIndex adapters.
+- Docker Compose, tests, and example agents (cited answer, deep-research loop, Streamlit demo).
 
 ## API
 
@@ -335,6 +336,23 @@ with SearchFetchClient("http://localhost:8000", os.environ["SEARCHFETCH_API_KEY"
     page = client.fetch(results[0].url)
 ```
 
+### TypeScript
+
+```bash
+cd clients/typescript && npm install && npm run build
+```
+
+```ts
+import { SearchRelayClient } from "searchrelay-sdk";
+
+const client = new SearchRelayClient({
+  baseUrl: "http://localhost:8000",
+  apiKey: process.env.SEARCHFETCH_API_KEY,
+});
+const results = await client.search("FastAPI asyncio", { count: 5 });
+const page = await client.fetch(results[0].url);
+```
+
 ### Go
 
 ```bash
@@ -350,6 +368,25 @@ client := searchfetch.New("http://localhost:8000", os.Getenv("SEARCHFETCH_API_KE
 results, err := client.Search(ctx, "FastAPI asyncio", searchfetch.SearchOptions{Count: 5})
 page, err := client.Fetch(ctx, results[0].URL)
 ```
+
+### MCP server
+
+```bash
+.venv/bin/pip install -e clients/mcp
+```
+
+The MCP server exposes `search` and `fetch` tools over stdio. Install steps for
+Claude Desktop, Claude Code, Cursor, and Windsurf are in
+[`docs/agents.md`](docs/agents.md) and [`clients/mcp/README.md`](clients/mcp/README.md).
+
+### LangChain and LlamaIndex
+
+```bash
+.venv/bin/pip install -e "clients/python[langchain]"
+.venv/bin/pip install -e "clients/python[llamaindex]"
+```
+
+See [`docs/agents.md`](docs/agents.md) for the tool and reader snippets.
 
 ## Agent example
 
@@ -377,13 +414,16 @@ The test suite uses mocked upstream HTTP responses, so it does not require inter
 
 ```text
 app/                    FastAPI service
-clients/python/         Python SDK
+clients/python/         Python SDK (+ LangChain tool, LlamaIndex reader)
+clients/typescript/     TypeScript SDK
 clients/go/             Go SDK
-examples/agent.py       Search → fetch → answer agent
+clients/mcp/            MCP server (stdio) for agent clients
+examples/               Cited-answer agent, deep-research loop, Streamlit demo
 openapi.json            OpenAPI 3.1 specification
 deploy/searxng/         SearXNG container configuration
 config/authority.yaml   Authority tier configuration
 tests/                  Contract, security, billing, and limit tests
 docs/architecture.md    Engine and scaling design
+docs/agents.md          Agent integrations (MCP, SDKs, LangChain, LlamaIndex)
 docs/local-index.md     Optional private index for your own sites
 ```

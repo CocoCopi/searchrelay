@@ -557,12 +557,12 @@ quality.
 
 | Mode | Provider | Queries | nDCG@10 | p50 latency | p95 latency | Failure rate |
 |---|---|---:|---:|---:|---:|---:|
-| provider | synthetic-brave | 100 | 1.0000 | 0.0 ms | 0.1 ms | 0.00% |
-| provider | synthetic-serper | 100 | 1.0000 | 0.0 ms | 0.1 ms | 0.00% |
-| provider | synthetic-tavily | 100 | 1.0000 | 0.0 ms | 0.1 ms | 0.00% |
-| provider | synthetic-exa | 100 | 1.0000 | 0.0 ms | 0.1 ms | 0.00% |
-| provider | synthetic-searxng | 100 | 1.0000 | 0.0 ms | 0.1 ms | 0.00% |
-| federated | federated | 100 | 1.0000 | 0.9 ms | 2.3 ms | 0.00% |
+| provider | synthetic-brave | 100 | 1.0000 | 0.1 ms | 0.4 ms | 0.00% |
+| provider | synthetic-serper | 100 | 1.0000 | 0.1 ms | 0.3 ms | 0.00% |
+| provider | synthetic-tavily | 100 | 1.0000 | 0.1 ms | 0.2 ms | 0.00% |
+| provider | synthetic-exa | 100 | 1.0000 | 0.1 ms | 0.2 ms | 0.00% |
+| provider | synthetic-searxng | 100 | 1.0000 | 0.1 ms | 0.3 ms | 0.00% |
+| federated | federated | 100 | 1.0000 | 3.0 ms | 5.5 ms | 0.00% |
 
 Reproduce the self-test:
 
@@ -650,6 +650,7 @@ tests/                  Contract, security, billing, limit, and provider tests
   issue for a vulnerability.
 - Code of conduct: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 - Changelog: [`CHANGELOG.md`](CHANGELOG.md).
+- Release notes: [`docs/releases/v0.1.0.md`](docs/releases/v0.1.0.md).
 - License: [Apache-2.0](LICENSE).
 
 SearchRelay is an independent project. It is not affiliated with, endorsed by,

@@ -65,5 +65,7 @@ nav:
   - Optional local index: local-index.md
   - Architecture: architecture.md
   - Benchmarks: benchmarks.md
+  - Releases:
+      - v0.1.0: releases/v0.1.0.md
   - FAQ: faq.md
   - Development: good-first-issues.md

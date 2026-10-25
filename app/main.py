@@ -10,10 +10,19 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth import AccountResolver
 from app.billing import BillingStore
+from app.cache import TwoTierCache
 from app.config import Settings
 from app.errors import APIError, BodyTooLarge, error_payload, install_error_handlers
 from app.fetch import FetchService
-from app.models import FetchRequest, FetchResponse, SearchRequest, SearchResponse
+from app.models import (
+    FetchRequest,
+    FetchResponse,
+    SearchBatchItem,
+    SearchBatchRequest,
+    SearchBatchResponse,
+    SearchRequest,
+    SearchResponse,
+)
 from app.pipeline import SearchPipeline
 from app.providers.factory import build_search_provider
 from app.rate_limit import SlidingWindowRateLimiter
@@ -104,6 +113,8 @@ def create_app(
             allowed_domains=runtime_settings.allowed_domains(),
         )
         app.state.security_policy = policy
+        cache = _build_cache(runtime_settings)
+        app.state.cache = cache
         fetcher = FetchService(
             client=client,
             policy=policy,
@@ -111,6 +122,7 @@ def create_app(
             max_bytes=runtime_settings.fetch_max_bytes,
             max_redirects=runtime_settings.fetch_max_redirects,
             respect_robots=runtime_settings.respect_robots,
+            cache=cache,
         )
         app.state.fetcher = fetcher
         backend = build_search_provider(runtime_settings, client)
@@ -119,6 +131,7 @@ def create_app(
             backend=backend,
             fetcher=fetcher,
             content_concurrency=runtime_settings.fetch_concurrency,
+            cache=cache,
         )
 
         try:
@@ -226,6 +239,87 @@ def create_app(
         return SearchResponse(results=list(outcome.results))
 
     @app.post(
+        "/v1/tools/search/batch",
+        response_model=SearchBatchResponse,
+        responses={
+            200: {
+                "description": "Batch search results, one item per query",
+                "headers": {
+                    "X-Providers-Used": {
+                        "description": "Comma-separated providers that answered successfully.",
+                        "schema": {"type": "string"},
+                    }
+                },
+            },
+            **ERROR_RESPONSES,
+        },
+        summary="Search the web with up to ten queries",
+    )
+    async def search_batch(
+        request: SearchBatchRequest,
+        http_request: Request,
+        http_response: Response,
+        account_id: Annotated[str, Depends(require_account)],
+    ) -> SearchBatchResponse:
+        _require_json_content_type(http_request)
+        state = http_request.app.state
+        items: list[SearchBatchItem] = []
+        errors: list[APIError] = []
+        providers_used: list[str] = []
+
+        for query in request.queries:
+            if not state.rate_limiter.check_and_record(
+                f"account:{account_id}:search",
+                runtime_settings.search_qps,
+            ):
+                raise APIError(429, "Account search QPS limit exceeded", "qps_exceeded")
+            search_request = SearchRequest(
+                query=query,
+                count=request.count,
+                ori_question=request.ori_question,
+                localization=request.localization,
+                need_content=request.need_content,
+            )
+            try:
+                outcome = await state.search_pipeline.search(search_request)
+            except APIError as exc:
+                errors.append(exc)
+                items.append(
+                    SearchBatchItem(
+                        query=query,
+                        results=[],
+                        error=error_payload(
+                            exc.message,
+                            exc.code,
+                            param=exc.param,
+                            error_type=exc.error_type,
+                        )["error"],
+                    )
+                )
+                continue
+
+            if outcome.results:
+                if not state.billing.charge(account_id, "search"):
+                    raise APIError(402, "Account balance is insufficient", "insufficient_balance")
+            for provider in outcome.providers_used:
+                if provider not in providers_used:
+                    providers_used.append(provider)
+            items.append(SearchBatchItem(query=query, results=list(outcome.results)))
+
+        if items and all(item.error is not None for item in items):
+            first = errors[0]
+            raise APIError(
+                first.status_code,
+                first.message,
+                first.code,
+                param=first.param,
+                error_type=first.error_type,
+            )
+
+        http_response.headers["X-Providers-Used"] = ",".join(providers_used)
+        return SearchBatchResponse(items=items)
+
+    @app.post(
         "/v1/tools/fetch",
         response_model=FetchResponse,
         responses=ERROR_RESPONSES,
@@ -283,6 +377,26 @@ def _require_json_content_type(request: Request) -> None:
     content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().casefold()
     if content_type != "application/json":
         raise APIError(400, "Content-Type must be application/json", "invalid_content_type")
+
+
+def _build_cache(settings: Settings) -> TwoTierCache | None:
+    if not settings.cache_enabled:
+        return None
+    return TwoTierCache(
+        database_path=settings.cache_database_path,
+        max_entries=settings.cache_memory_entries,
+        ttls={
+            "search": settings.cache_search_ttl_seconds,
+            "text/html": settings.cache_fetch_ttl_seconds,
+            "application/xhtml+xml": settings.cache_fetch_ttl_seconds,
+            "text/plain": settings.cache_fetch_ttl_seconds,
+            "text/markdown": settings.cache_fetch_ttl_seconds,
+            "application/pdf": settings.cache_pdf_ttl_seconds,
+            "application/json": settings.cache_fetch_ttl_seconds,
+            "application/xml": settings.cache_fetch_ttl_seconds,
+            "text/xml": settings.cache_fetch_ttl_seconds,
+        },
+    )
 
 
 async def _ensure_balance(billing: BillingStore, account_id: str) -> None:

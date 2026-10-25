@@ -38,6 +38,22 @@ Search pipeline
   └─ query-focused snippet/summary generation
 ```
 
+## Cache and request coalescing
+
+```text
+request
+  │
+  ├─ single-flight coalescer ──► one upstream call per identical key
+  │
+  ├─ in-memory LRU (per process)
+  │
+  └─ SQLite cache tier (shared volume)
+```
+
+Search responses and extracted pages are cached under a key derived from the request. Search keys include the query, result count, `ori_question`, `localization`, and `need_content`. Fetch keys are the normalized URL. TTLs differ per content type: search results and JSON are short-lived, HTML and plain text are cached for an hour, and PDFs are cached for a day.
+
+Cached pages keep the upstream `ETag` and `Last-Modified` validators. When an entry is stale the fetch service revalidates with `If-None-Match`/`If-Modified-Since`; a `304 Not Modified` response reuses the cached extraction instead of re-parsing the document. The heuristic stays the default; the cross-encoder reranker (optional, off by default) only reorders candidates that are already cached.
+
 Every corpus source implements the provider-neutral `SearchProvider` contract. The federation layer applies timeouts, retries with jitter, circuit breakers, and per-provider budgets before Reciprocal Rank Fusion and canonical URL deduplication. A failed provider does not erase successful results from other providers. Replacing or adding a provider does not change the public API, billing logic, clients, or Fetch security boundary.
 
 ## Search semantics
@@ -172,3 +188,5 @@ The included limiter is process-local and the ledger is SQLite-backed. That is a
 - per-tenant and per-domain fairness controls.
 
 The public behavior—independent account Search/Fetch QPS and global per-domain Fetch throttling—can remain unchanged.
+
+The response cache is deliberately two-tier: the in-process LRU absorbs the hot path, while the SQLite tier can be placed on a shared volume. A Redis-backed limiter, ledger, and cache are configured through `SF_REDIS_URL` when the deployment runs more than one replica.

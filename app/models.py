@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
 
@@ -64,6 +64,55 @@ class SearchResult(APIModel):
 
 class SearchResponse(APIModel):
     results: list[SearchResult]
+
+
+class SearchBatchRequest(APIModel):
+    queries: list[str] = Field(min_length=1, max_length=10)
+    count: Annotated[StrictInt, Field(ge=1, le=50)] = 10
+    ori_question: str | None = Field(default=None, min_length=1, max_length=128)
+    localization: str = Field(
+        default="",
+        description="Optional IPv4 or IPv6 address used to localize the search request.",
+    )
+    need_content: Annotated[StrictBool, Field()] = False
+
+    @field_validator("queries")
+    @classmethod
+    def queries_not_blank(cls, value: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        for query in value:
+            if not query.strip():
+                raise ValueError("queries must not contain blank queries")
+            cleaned.append(query)
+        return cleaned
+
+    @field_validator("ori_question")
+    @classmethod
+    def batch_question_not_blank(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("ori_question must not be all whitespace")
+        return value
+
+    @field_validator("localization")
+    @classmethod
+    def batch_localization_is_ip_address(cls, value: str) -> str:
+        if not value:
+            return value
+        try:
+            ipaddress.ip_address(value)
+        except ValueError as exc:
+            raise ValueError("localization must be a valid IPv4 or IPv6 address") from exc
+        return value
+
+
+class SearchBatchItem(APIModel):
+    query: str
+    results: list[SearchResult] = Field(default_factory=list)
+    error: dict[str, Any] | None = None
+
+
+class SearchBatchResponse(APIModel):
+    items: list[SearchBatchItem]
 
 
 class FetchRequest(APIModel):

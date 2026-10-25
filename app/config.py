@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     fetch_qps: int = Field(default=25, ge=1)
     fetch_domain_qps: int = Field(default=5, ge=1)
 
+    cache_enabled: bool = True
+    cache_memory_entries: int = Field(default=512, ge=16, le=100_000)
+    cache_database_path: Path | None = Path("data/cache.db")
+    cache_search_ttl_seconds: float = Field(default=300.0, ge=0, le=86_400)
+    cache_fetch_ttl_seconds: float = Field(default=3600.0, ge=0, le=604_800)
+    cache_pdf_ttl_seconds: float = Field(default=86_400.0, ge=0, le=2_592_000)
+
     max_request_body_bytes: int = Field(default=64 * 1024, ge=1024)
     fetch_max_bytes: int = Field(default=5 * 1024 * 1024, ge=1024)
     fetch_timeout_seconds: float = Field(default=12.0, gt=0, le=120)
@@ -69,6 +76,11 @@ class Settings(BaseSettings):
     @classmethod
     def validate_database_path(cls, value: Path) -> Path:
         return value.expanduser()
+
+    @field_validator("cache_database_path")
+    @classmethod
+    def validate_cache_database_path(cls, value: Path | None) -> Path | None:
+        return value.expanduser() if value is not None else None
 
     @field_validator("api_keys_json", "initial_balances_json", mode="before")
     @classmethod

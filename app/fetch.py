@@ -10,6 +10,7 @@ from urllib.robotparser import RobotFileParser
 
 import httpx
 
+from app.cache import CacheEntry, SingleFlight, TwoTierCache
 from app.content import ExtractedPage, extract_page, sanitize_untrusted_text
 from app.errors import APIError
 from app.security import (
@@ -50,6 +51,8 @@ class FetchService:
         max_redirects: int = 5,
         respect_robots: bool = True,
         robots_ttl_seconds: int = 3600,
+        cache: TwoTierCache | None = None,
+        coalescer: SingleFlight | None = None,
     ) -> None:
         self.client = client
         self.policy = policy
@@ -59,9 +62,17 @@ class FetchService:
         self.max_redirects = max_redirects
         self.respect_robots = respect_robots
         self.robots_ttl_seconds = robots_ttl_seconds
+        self.cache = cache
+        self.coalescer = coalescer or SingleFlight()
         self._robots_cache: dict[str, RobotsDecision] = {}
 
     async def fetch(self, raw_url: str) -> ExtractedPage:
+        """Fetch a page, using the cache and coalescing identical requests."""
+
+        key = _cache_key(raw_url)
+        return await self.coalescer.run(key, lambda: self._fetch_uncached(raw_url, key))
+
+    async def _fetch_uncached(self, raw_url: str, cache_key: str) -> ExtractedPage:
         try:
             target = validate_url(raw_url)
         except URLValidationError as exc:
@@ -77,11 +88,20 @@ class FetchService:
                     "no_usable_content",
                 )
 
+        cached = await self._cache_get(cache_key)
+        if cached is not None and cached.is_fresh():
+            return _page_from_entry(cached)
+        conditional = _conditional_headers(cached)
+
         try:
             final_url, response = await self._request_with_redirects(
                 target,
                 before_request=self._check_page_target,
+                extra_headers=conditional,
             )
+            if response.status_code == 304 and cached is not None:
+                await self._cache_touch(cache_key)
+                return _page_from_entry(cached)
             body = await self._read_limited(response, self.max_bytes)
             if response.status_code >= 500:
                 raise APIError(500, "The downstream URL returned a server error", "upstream_fetch_failed")
@@ -123,6 +143,13 @@ class FetchService:
                     "No usable content could be extracted from the URL",
                     "no_usable_content",
                 )
+            await self._cache_store(
+                cache_key,
+                page,
+                content_type=content_type,
+                etag=response.headers.get("etag"),
+                last_modified=response.headers.get("last-modified"),
+            )
             return page
         except httpx.ReadTimeout as exc:
             raise APIError(408, "Timed out while reading the response body", "body_timeout") from exc
@@ -186,12 +213,16 @@ class FetchService:
         initial: ValidatedURL,
         *,
         before_request=None,
+        extra_headers: dict[str, str] | None = None,
     ) -> tuple[ValidatedURL, httpx.Response]:
         current = initial
         for redirect_number in range(self.max_redirects + 1):
             if before_request is not None:
                 await before_request(current)
-            response = await self._request_once(current)
+            response = await self._request_once(
+                current,
+                extra_headers=extra_headers if redirect_number == 0 else None,
+            )
             if response.status_code not in {301, 302, 303, 307, 308}:
                 return current, response
 
@@ -209,7 +240,12 @@ class FetchService:
                 raise APIError(404, "The URL redirected to an invalid URL", "no_usable_content") from exc
         raise APIError(404, "The URL redirected too many times", "no_usable_content")
 
-    async def _request_once(self, target: ValidatedURL) -> httpx.Response:
+    async def _request_once(
+        self,
+        target: ValidatedURL,
+        *,
+        extra_headers: dict[str, str] | None = None,
+    ) -> httpx.Response:
         self.policy.check_host(target.hostname)
         addresses = await resolve_public_addresses(target.hostname)
         selected = addresses[0]
@@ -219,6 +255,8 @@ class FetchService:
             "User-Agent": self.user_agent,
             "Host": _host_header(target),
         }
+        if extra_headers:
+            headers.update(extra_headers)
         request = self.client.build_request(
             "GET",
             pinned_url,
@@ -226,6 +264,36 @@ class FetchService:
             extensions={"sni_hostname": target.hostname},
         )
         return await self.client.send(request, stream=True)
+
+    async def _cache_get(self, cache_key: str) -> CacheEntry | None:
+        if self.cache is None:
+            return None
+        return await self.cache.get_for_revalidation(cache_key)
+
+    async def _cache_store(
+        self,
+        cache_key: str,
+        page: ExtractedPage,
+        *,
+        content_type: str,
+        etag: str | None,
+        last_modified: str | None,
+    ) -> None:
+        if self.cache is None:
+            return
+        await self.cache.set(
+            cache_key,
+            page.content,
+            content_type=content_type,
+            etag=etag,
+            last_modified=last_modified,
+            metadata={"title": page.title},
+        )
+
+    async def _cache_touch(self, cache_key: str) -> None:
+        if self.cache is None:
+            return
+        await self.cache.touch(cache_key)
 
     async def _read_limited(self, response: httpx.Response, limit: int) -> bytes:
         body = bytearray()
@@ -236,6 +304,32 @@ class FetchService:
                 raise APIError(413, "The response body is too large", "body_too_large")
         await response.aclose()
         return bytes(body)
+
+
+def _cache_key(raw_url: str) -> str:
+    parsed = urlsplit(raw_url)
+    normalized = urlunsplit(
+        (parsed.scheme.casefold(), parsed.netloc.casefold(), parsed.path, parsed.query, "")
+    )
+    return f"fetch:{normalized}"
+
+
+def _conditional_headers(cached: CacheEntry | None) -> dict[str, str]:
+    if cached is None:
+        return {}
+    headers: dict[str, str] = {}
+    if cached.etag:
+        headers["If-None-Match"] = cached.etag
+    if cached.last_modified:
+        headers["If-Modified-Since"] = cached.last_modified
+    return headers
+
+
+def _page_from_entry(entry: CacheEntry) -> ExtractedPage:
+    return ExtractedPage(
+        title=str(entry.metadata.get("title") or ""),
+        content=entry.value,
+    )
 
 
 def _pin_hostname(target: ValidatedURL, address: str) -> str:

@@ -23,6 +23,7 @@ async def api_harness(
         "api_keys_json": {"sk-test": "account-test"},
         "initial_balances_json": {"account-test": 1_000_000},
         "database_path": tmp_path / "billing.db",
+        "cache_database_path": None,
         "upstream_url": "http://search.test",
         "respect_robots": False,
         "search_qps": 100,

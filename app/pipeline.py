@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from dataclasses import dataclass
 from datetime import timezone
 from urllib.parse import urlsplit
 
+from app.cache import SingleFlight, TwoTierCache, cache_key
 from app.content import sanitize_untrusted_text
 from app.errors import APIError
 from app.excerpt import make_snippet, make_summary
@@ -30,13 +32,37 @@ class SearchPipeline:
         fetcher: FetchService,
         ranker: Ranker | None = None,
         content_concurrency: int = 5,
+        cache: TwoTierCache | None = None,
+        coalescer: SingleFlight | None = None,
+        cache_namespace: str = "search",
     ) -> None:
         self.backend = backend
         self.fetcher = fetcher
         self.ranker = ranker or Ranker()
         self.semaphore = asyncio.Semaphore(content_concurrency)
+        self.cache = cache
+        self.coalescer = coalescer or SingleFlight()
+        self.cache_namespace = cache_namespace
 
     async def search(self, request: SearchRequest) -> SearchOutcome:
+        key = self._cache_key(request)
+        return await self.coalescer.run(key, lambda: self._search_uncached(request, key))
+
+    def _cache_key(self, request: SearchRequest) -> str:
+        return cache_key(
+            self.cache_namespace,
+            request.query,
+            request.count,
+            request.ori_question or "",
+            request.localization,
+            request.need_content,
+        )
+
+    async def _search_uncached(self, request: SearchRequest, key: str) -> SearchOutcome:
+        cached = await self._cache_get(key)
+        if cached is not None:
+            return _outcome_from_cache(cached.value)
+
         try:
             parsed = parse_query(request.query)
         except ValueError as exc:
@@ -98,10 +124,29 @@ class SearchPipeline:
                     authority=signals.authority,
                 )
             )
-        return SearchOutcome(
+        outcome = SearchOutcome(
             results=tuple(results),
             providers_used=provider_result.providers_used,
         )
+        await self._cache_store(key, outcome)
+        return outcome
+
+    async def _cache_get(self, key: str):
+        if self.cache is None:
+            return None
+        return await self.cache.get(key)
+
+    async def _cache_store(self, key: str, outcome: SearchOutcome) -> None:
+        if self.cache is None:
+            return
+        payload = json.dumps(
+            {
+                "results": [result.model_dump() for result in outcome.results],
+                "providers_used": list(outcome.providers_used),
+            },
+            ensure_ascii=False,
+        )
+        await self.cache.set(key, payload, content_type="search")
 
     def _filter_candidates(
         self,
@@ -141,6 +186,13 @@ class SearchPipeline:
             if len(filtered) >= count:
                 break
         return filtered
+
+
+def _outcome_from_cache(payload: str) -> SearchOutcome:
+    data = json.loads(payload)
+    results = tuple(SearchResult.model_validate(item) for item in data.get("results", []))
+    providers_used = tuple(str(name) for name in data.get("providers_used", []))
+    return SearchOutcome(results=results, providers_used=providers_used)
 
 
 def _site_name(url: str) -> str | None:

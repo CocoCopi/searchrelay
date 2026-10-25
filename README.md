@@ -22,6 +22,8 @@ The API, ranking, summarization, security, billing, and client layers are indepe
 
 - `POST /v1/tools/search` and `POST /v1/tools/fetch` with the requested JSON contract.
 - Parallel provider federation across Brave Search API, Serper, Tavily, Exa, and user-run SearXNG, with reciprocal rank fusion, canonical URL deduplication, retries, circuit breakers, budgets, and partial-failure failover.
+- Two-tier cache (in-memory LRU plus SQLite) with TTLs by content type, `ETag`/`Last-Modified` revalidation, and request coalescing so identical concurrent queries share one upstream call.
+- `POST /v1/tools/search/batch` runs up to ten queries and bills one unit per successful query.
 - Search operators: `site:`, `-site:`, `-term`, `-"phrase"`, `"exact phrase"`, `lang:zh,en`, `after:YYYY[-MM[-DD]]`, and `before:YYYY[-MM[-DD]]`; operators are enforced again locally after retrieval.
 - Query-aware snippets/summaries, authority tiers, freshness, quality, relevance, spam penalties, and a normalized `rerank_score` from 0 to 3 (see [`docs/ranking.md`](docs/ranking.md)).
 - Main-content HTML-to-Markdown conversion with Trafilatura, page-chrome removal, active/hidden content removal, and prompt-injection instruction filtering.
@@ -96,6 +98,36 @@ Response:
 ```
 
 No matches return HTTP 200 with `{"results": []}`. Successful responses include `X-Providers-Used`, listing providers that answered. See [`docs/providers.md`](docs/providers.md) for configuration and provider terms-of-service tradeoffs.
+
+### Batch search
+
+```bash
+curl -sS http://localhost:8000/v1/tools/search/batch \
+  -H "Authorization: Bearer $SEARCHFETCH_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"queries":["fastapi background tasks","python asyncio tutorial"],"count":5}'
+```
+
+```json
+{
+  "items": [
+    {
+      "query": "fastapi background tasks",
+      "results": [{"rerank_score": 1.9, "title": "...", "url": "..."}],
+      "error": null
+    },
+    {
+      "query": "python asyncio tutorial",
+      "results": [],
+      "error": {"message": "...", "type": "invalid_request_error", "param": null, "code": "downstream_timeout"}
+    }
+  ]
+}
+```
+
+- Up to ten queries per request; each query uses the same `count`, `ori_question`, `localization`, and `need_content` values.
+- Each query is billed separately, and only a query that returns a non-empty `results` array is billable.
+- A query that fails carries its own error object; the other queries still return results. If every query fails, the endpoint returns the usual error envelope instead of a 200 body.
 
 ### Fetch
 
@@ -240,6 +272,12 @@ All settings use the `SF_` prefix.
 | `SF_PROVIDER_CIRCUIT_RESET_SECONDS` | `30` | Delay before a half-open circuit probe |
 | `SF_PROVIDER_RRF_K` | `60` | Reciprocal Rank Fusion constant |
 | `SF_DATABASE_PATH` | `data/searchfetch.db` | Billing ledger path |
+| `SF_CACHE_ENABLED` | `true` | Enable the two-tier cache |
+| `SF_CACHE_MEMORY_ENTRIES` | `512` | In-memory LRU capacity |
+| `SF_CACHE_DATABASE_PATH` | `data/cache.db` | SQLite cache tier; unset disables the persistent tier |
+| `SF_CACHE_SEARCH_TTL_SECONDS` | `300` | Search result TTL |
+| `SF_CACHE_FETCH_TTL_SECONDS` | `3600` | HTML/text fetch TTL |
+| `SF_CACHE_PDF_TTL_SECONDS` | `86400` | PDF fetch TTL |
 | `SF_API_KEYS_JSON` | `{}` (startup rejects an empty map) | JSON map of bearer key → account ID |
 | `SF_INITIAL_BALANCES_JSON` | `{}` | JSON map of account ID → micro-US dollars |
 | `SF_KEYS_FILE` | unset | JSON key/balance file |

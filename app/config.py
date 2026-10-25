@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     upstream_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
     engine_name: str = "searxng"
 
+    provider_config_file: Path | None = None
+    provider_priorities_csv: str = "searxng"
+    provider_retry_attempts: int = Field(default=2, ge=1, le=5)
+    provider_retry_base_delay_seconds: float = Field(default=0.15, ge=0, le=10)
+    provider_circuit_failure_threshold: int = Field(default=5, ge=1, le=100)
+    provider_circuit_reset_seconds: float = Field(default=30.0, ge=0, le=3600)
+    provider_health_cache_seconds: float = Field(default=15.0, ge=0, le=300)
+    provider_rrf_k: int = Field(default=60, ge=1, le=1000)
+
     api_keys_json: Annotated[dict[str, str], NoDecode] = Field(default_factory=dict)
     initial_balances_json: Annotated[dict[str, int], NoDecode] = Field(default_factory=dict)
     keys_file: Path | None = None

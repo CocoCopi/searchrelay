@@ -22,7 +22,15 @@
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Search results",
+            "headers": {
+              "X-Providers-Used": {
+                "description": "Comma-separated providers that answered successfully.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {

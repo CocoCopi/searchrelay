@@ -13,6 +13,8 @@ def test_openapi_document_contains_required_contract() -> None:
     assert "/v1/tools/fetch" in spec["paths"]
     assert spec["paths"]["/v1/tools/search"]["post"]["security"] == [{"HTTPBearer": []}]
     assert spec["paths"]["/v1/tools/fetch"]["post"]["security"] == [{"HTTPBearer": []}]
+    provider_header = spec["paths"]["/v1/tools/search"]["post"]["responses"]["200"]["headers"]
+    assert "X-Providers-Used" in provider_header
 
     error_schema = spec["paths"]["/v1/tools/search"]["post"]["responses"]["400"]["content"][
         "application/json"

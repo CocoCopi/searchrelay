@@ -4,7 +4,7 @@ A DeepSeek Search API-compatible web search and page-fetch service for AI agents
 
 ## Architecture decision: do you need your own crawler?
 
-No for an API-first launch. This project uses a self-hosted **SearXNG** instance as the search/index backend. That gives you live web coverage without building and operating a crawler or a hundreds-of-billions-page index.
+No for an API-first launch. The default deployment uses a user-run **SearXNG** instance, and the provider layer can federate it with official Brave Search, Serper, Tavily, and Exa APIs. This gives you live web coverage without building and operating a crawler or a hundreds-of-billions-page index.
 
 A private crawler/index is worthwhile only when you need to:
 
@@ -14,13 +14,14 @@ A private crawler/index is worthwhile only when you need to:
 - avoid depending on upstream search engines; or
 - collect behavioral/click feedback at scale.
 
-The API, ranking, summarization, security, billing, and client layers are independent of SearXNG through the `SearchBackend` interface, so a proprietary crawler/index can replace it later. The production crawler/index design is outlined in [`docs/architecture.md`](docs/architecture.md).
+The API, ranking, summarization, security, billing, and client layers are independent of any provider through the `SearchProvider` interface. A user-owned private corpus can be added as another provider later. The crawler/index design is outlined in [`docs/architecture.md`](docs/architecture.md).
 
 > This repository does **not** claim to implement a distributed hundreds-of-billions-page index. SearXNG is the deliberately selected, replaceable corpus provider for the API-first scope.
 
 ## Features
 
 - `POST /v1/tools/search` and `POST /v1/tools/fetch` with the requested JSON contract.
+- Parallel provider federation across Brave Search API, Serper, Tavily, Exa, and user-run SearXNG, with reciprocal rank fusion, canonical URL deduplication, retries, circuit breakers, budgets, and partial-failure failover.
 - Search operators: `site:`, `-site:`, `-term`, `-"phrase"`, `"exact phrase"`, `lang:zh,en`, `after:YYYY[-MM[-DD]]`, and `before:YYYY[-MM[-DD]]`; operators are enforced again locally after retrieval.
 - Query-aware snippets/summaries, authority tiers, freshness, quality, relevance, spam penalties, and a normalized `rerank_score` from 0 to 3 (see [`docs/ranking.md`](docs/ranking.md)).
 - Main-content HTML-to-Markdown conversion with Trafilatura, page-chrome removal, active/hidden content removal, and prompt-injection instruction filtering.
@@ -94,7 +95,7 @@ Response:
 }
 ```
 
-No matches return HTTP 200 with `{"results": []}`.
+No matches return HTTP 200 with `{"results": []}`. Successful responses include `X-Providers-Used`, listing providers that answered. See [`docs/providers.md`](docs/providers.md) for configuration and provider terms-of-service tradeoffs.
 
 ### Fetch
 
@@ -223,12 +224,21 @@ Environment-provided key and balance mappings override file values.
 
 ## Configuration
 
+Official provider credentials use their service-standard environment variables: `BRAVE_SEARCH_API_KEY`, `SERPER_API_KEY`, `TAVILY_API_KEY`, and `EXA_API_KEY`. Only providers listed in `SF_PROVIDER_PRIORITIES` are queried.
+
 All settings use the `SF_` prefix.
 
 | Variable | Default | Purpose |
 |---|---:|---|
 | `SF_UPSTREAM_URL` | `http://searxng:8080` | SearXNG base URL |
-| `SF_UPSTREAM_TIMEOUT_SECONDS` | `10` | Search backend timeout |
+| `SF_UPSTREAM_TIMEOUT_SECONDS` | `10` | SearXNG provider timeout |
+| `SF_PROVIDER_PRIORITIES` | `searxng` | Comma-separated enabled provider priorities |
+| `SF_PROVIDER_CONFIG_FILE` | unset | Optional JSON file for provider budgets and settings |
+| `SF_PROVIDER_RETRY_ATTEMPTS` | `2` | Attempts per provider search, including the first |
+| `SF_PROVIDER_RETRY_BASE_DELAY_SECONDS` | `0.15` | Full-jitter exponential retry base delay |
+| `SF_PROVIDER_CIRCUIT_FAILURE_THRESHOLD` | `5` | Failed logical calls before a circuit opens |
+| `SF_PROVIDER_CIRCUIT_RESET_SECONDS` | `30` | Delay before a half-open circuit probe |
+| `SF_PROVIDER_RRF_K` | `60` | Reciprocal Rank Fusion constant |
 | `SF_DATABASE_PATH` | `data/searchfetch.db` | Billing ledger path |
 | `SF_API_KEYS_JSON` | `{}` (startup rejects an empty map) | JSON map of bearer key → account ID |
 | `SF_INITIAL_BALANCES_JSON` | `{}` | JSON map of account ID → micro-US dollars |

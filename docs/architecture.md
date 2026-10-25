@@ -24,14 +24,21 @@ FastAPI contract layer
       ▼
 Search pipeline
   ├─ operator parser
-  ├─ SearXNG backend adapter
-  ├─ date/site filtering + dedupe
+  ├─ parallel provider federation
+  │    ├─ SearXNG (user-run)
+  │    ├─ Brave Search API
+  │    ├─ Serper API
+  │    ├─ Tavily API
+  │    └─ Exa API
+  ├─ retry + circuit breaker + per-provider budgets
+  ├─ reciprocal rank fusion + canonical URL dedupe
+  ├─ local date/site/term/phrase/language filtering
   ├─ safe page materialization
   ├─ authority/freshness/quality/relevance ranking
   └─ query-focused snippet/summary generation
 ```
 
-SearXNG is deliberately behind `SearchBackend` in `app/engine.py`. Replacing it does not change the public API, billing logic, clients, or Fetch security boundary.
+Every corpus source implements the provider-neutral `SearchProvider` contract. The federation layer applies timeouts, retries with jitter, circuit breakers, and per-provider budgets before Reciprocal Rank Fusion and canonical URL deduplication. A failed provider does not erase successful results from other providers. Replacing or adding a provider does not change the public API, billing logic, clients, or Fetch security boundary.
 
 ## Search semantics
 
@@ -86,9 +93,9 @@ The SSRF boundary is intentionally stricter than ordinary HTTP clients:
 
 `httpx` is created with `trust_env=False` so ambient proxy variables cannot bypass the policy.
 
-## Replacing SearXNG with a private corpus
+## Optional private corpus
 
-A production-owned corpus should be split into independently scalable planes.
+A user-owned corpus should be split into independently scalable planes. SearchRelay's optional local provider is for user-supplied sites and documents; it is not a general web index.
 
 ### 1. Crawler
 

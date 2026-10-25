@@ -4,18 +4,18 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
 import httpx
-from fastapi import Depends, FastAPI, Request, Security
+from fastapi import Depends, FastAPI, Request, Response, Security
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth import AccountResolver
 from app.billing import BillingStore
 from app.config import Settings
-from app.engine import SearXNGBackend
 from app.errors import APIError, BodyTooLarge, error_payload, install_error_handlers
 from app.fetch import FetchService
 from app.models import FetchRequest, FetchResponse, SearchRequest, SearchResponse
 from app.pipeline import SearchPipeline
+from app.providers.factory import build_search_provider
 from app.rate_limit import SlidingWindowRateLimiter
 from app.security import SecurityPolicy, URLValidationError, validate_url
 
@@ -113,11 +113,7 @@ def create_app(
             respect_robots=runtime_settings.respect_robots,
         )
         app.state.fetcher = fetcher
-        backend = SearXNGBackend(
-            client=client,
-            upstream_url=runtime_settings.upstream_url,
-            timeout_seconds=runtime_settings.upstream_timeout_seconds,
-        )
+        backend = build_search_provider(runtime_settings, client)
         app.state.backend = backend
         app.state.search_pipeline = SearchPipeline(
             backend=backend,
@@ -194,12 +190,24 @@ def create_app(
     @app.post(
         "/v1/tools/search",
         response_model=SearchResponse,
-        responses=ERROR_RESPONSES,
+        responses={
+            200: {
+                "description": "Search results",
+                "headers": {
+                    "X-Providers-Used": {
+                        "description": "Comma-separated providers that answered successfully.",
+                        "schema": {"type": "string"},
+                    }
+                },
+            },
+            **ERROR_RESPONSES,
+        },
         summary="Search the web",
     )
     async def search(
         request: SearchRequest,
         http_request: Request,
+        http_response: Response,
         account_id: Annotated[str, Depends(require_account)],
     ) -> SearchResponse:
         _require_json_content_type(http_request)
@@ -211,10 +219,11 @@ def create_app(
             raise APIError(429, "Account search QPS limit exceeded", "qps_exceeded")
         await _ensure_balance(state.billing, account_id)
 
-        results = await state.search_pipeline.search(request)
-        if results and not state.billing.charge(account_id, "search"):
+        outcome = await state.search_pipeline.search(request)
+        if outcome.results and not state.billing.charge(account_id, "search"):
             raise APIError(402, "Account balance is insufficient", "insufficient_balance")
-        return SearchResponse(results=results)
+        http_response.headers["X-Providers-Used"] = ",".join(outcome.providers_used)
+        return SearchResponse(results=list(outcome.results))
 
     @app.post(
         "/v1/tools/fetch",

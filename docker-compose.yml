@@ -50,6 +50,11 @@ services:
       SF_SEARCH_QPS: ${SF_SEARCH_QPS:-100}
       SF_FETCH_QPS: ${SF_FETCH_QPS:-25}
       SF_FETCH_DOMAIN_QPS: ${SF_FETCH_DOMAIN_QPS:-5}
+      SF_PROVIDER_PRIORITIES: ${SF_PROVIDER_PRIORITIES:-searxng}
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
+      SERPER_API_KEY: ${SERPER_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      EXA_API_KEY: ${EXA_API_KEY:-}
     volumes:
       - searchfetch-data:/data
     ports:

@@ -2,24 +2,31 @@ from __future__ import annotations
 
 import asyncio
 import re
+from dataclasses import dataclass
 from datetime import timezone
 from urllib.parse import urlsplit
 
 from app.content import sanitize_untrusted_text
-from app.engine import SearchBackend, SearchCandidate
 from app.errors import APIError
 from app.excerpt import make_snippet, make_summary
 from app.fetch import FetchService
 from app.models import SearchRequest, SearchResult
 from app.operators import ParsedQuery, date_is_in_range, parse_query
+from app.providers.base import SearchCandidate, SearchProvider
 from app.ranking import Ranker
+
+
+@dataclass(frozen=True)
+class SearchOutcome:
+    results: tuple[SearchResult, ...]
+    providers_used: tuple[str, ...]
 
 
 class SearchPipeline:
     def __init__(
         self,
         *,
-        backend: SearchBackend,
+        backend: SearchProvider,
         fetcher: FetchService,
         ranker: Ranker | None = None,
         content_concurrency: int = 5,
@@ -29,18 +36,23 @@ class SearchPipeline:
         self.ranker = ranker or Ranker()
         self.semaphore = asyncio.Semaphore(content_concurrency)
 
-    async def search(self, request: SearchRequest) -> list[SearchResult]:
+    async def search(self, request: SearchRequest) -> SearchOutcome:
         try:
             parsed = parse_query(request.query)
         except ValueError as exc:
             raise APIError(400, f"Invalid query operator: {exc}", "invalid_query") from exc
 
-        candidates = await self.backend.search(
+        provider_result = await self.backend.search(
             parsed,
             count=request.count,
             localization=request.localization,
         )
-        candidates = self._filter_candidates(candidates, parsed, request.count)
+        candidates = self._filter_candidates(
+            list(provider_result.candidates),
+            parsed,
+            request.count,
+        )
+        candidates.sort(key=lambda candidate: -candidate.fusion_score)
 
         async def materialize(candidate: SearchCandidate) -> tuple[SearchCandidate, str]:
             source = candidate.snippet
@@ -86,7 +98,10 @@ class SearchPipeline:
                     authority=signals.authority,
                 )
             )
-        return results
+        return SearchOutcome(
+            results=tuple(results),
+            providers_used=provider_result.providers_used,
+        )
 
     def _filter_candidates(
         self,

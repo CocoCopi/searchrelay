@@ -1,41 +1,26 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Protocol
 
 import httpx
 
 from app.content import html_to_text, sanitize_untrusted_text
-from app.errors import APIError
 from app.operators import ParsedQuery
+from app.providers.base import (
+    ProviderError,
+    ProviderSearchResult,
+    SearchCandidate,
+    SearchProvider,
+)
 
 
-@dataclass(frozen=True)
-class SearchCandidate:
-    title: str
-    url: str
-    snippet: str
-    date: datetime | None = None
-    engine_score: float | None = None
-    source_engine: str | None = None
-    language: str | None = None
-
-
-class SearchBackend(Protocol):
-    async def search(
-        self,
-        parsed: ParsedQuery,
-        *,
-        count: int,
-        localization: str,
-    ) -> list[SearchCandidate]: ...
-
-    async def healthcheck(self) -> bool: ...
+SearchBackend = SearchProvider
 
 
 class SearXNGBackend:
+    name = "searxng"
+
     def __init__(
         self,
         *,
@@ -53,7 +38,7 @@ class SearXNGBackend:
         *,
         count: int,
         localization: str,
-    ) -> list[SearchCandidate]:
+    ) -> ProviderSearchResult:
         query = _engine_query(parsed)
         candidates: list[SearchCandidate] = []
         seen_urls: set[str] = set()
@@ -63,7 +48,12 @@ class SearXNGBackend:
             payload = await self._request_page(query, parsed, localization, page_number)
             raw_results = payload.get("results", [])
             if not isinstance(raw_results, list):
-                raise APIError(500, "The search backend returned an invalid response", "upstream_error")
+                raise ProviderError(
+                    "The search backend returned an invalid response",
+                    retryable=False,
+                    status_code=500,
+                    code="upstream_error",
+                )
 
             if not raw_results:
                 break
@@ -84,7 +74,11 @@ class SearXNGBackend:
             if len(candidates) >= count or len(raw_results) < 5:
                 break
 
-        return candidates
+        return ProviderSearchResult(
+            provider=self.name,
+            candidates=tuple(candidates),
+            providers_used=(self.name,),
+        )
 
     async def healthcheck(self) -> bool:
         try:
@@ -123,20 +117,50 @@ class SearXNGBackend:
                 timeout=self.timeout_seconds,
             )
         except httpx.TimeoutException as exc:
-            raise APIError(504, "The search backend timed out", "downstream_timeout") from exc
+            raise ProviderError(
+                "The search backend timed out",
+                retryable=True,
+                status_code=504,
+                code="downstream_timeout",
+            ) from exc
         except httpx.RequestError as exc:
-            raise APIError(504, "The search backend is unavailable", "downstream_timeout") from exc
+            raise ProviderError(
+                "The search backend is unavailable",
+                retryable=True,
+                status_code=504,
+                code="downstream_timeout",
+            ) from exc
 
         if response.status_code >= 500 or response.status_code == 429:
-            raise APIError(504, "The search backend is unavailable", "downstream_timeout")
+            raise ProviderError(
+                "The search backend is unavailable",
+                retryable=True,
+                status_code=504,
+                code="downstream_timeout",
+            )
         if response.status_code >= 400:
-            raise APIError(500, "The search backend rejected the request", "upstream_error")
+            raise ProviderError(
+                "The search backend rejected the request",
+                retryable=False,
+                status_code=500,
+                code="upstream_error",
+            )
         try:
             payload = response.json()
         except (ValueError, json.JSONDecodeError) as exc:
-            raise APIError(500, "The search backend returned invalid JSON", "upstream_error") from exc
+            raise ProviderError(
+                "The search backend returned invalid JSON",
+                retryable=False,
+                status_code=500,
+                code="upstream_error",
+            ) from exc
         if not isinstance(payload, dict):
-            raise APIError(500, "The search backend returned an invalid response", "upstream_error")
+            raise ProviderError(
+                "The search backend returned an invalid response",
+                retryable=False,
+                status_code=500,
+                code="upstream_error",
+            )
         return payload
 
 
@@ -173,6 +197,8 @@ def _candidate_from_result(raw: dict) -> SearchCandidate | None:
         engine_score=engine_score,
         source_engine=str(source) if source is not None else None,
         language=str(language).strip().casefold() or None if language is not None else None,
+        provider="searxng",
+        providers=("searxng",),
     )
 
 

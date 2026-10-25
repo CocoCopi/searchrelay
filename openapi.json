@@ -1112,6 +1112,7 @@
           "localization": {
             "type": "string",
             "title": "Localization",
+            "description": "Optional IPv4 or IPv6 address used to localize the search request.",
             "default": ""
           },
           "need_content": {
@@ -1190,7 +1191,8 @@
                 "type": "null"
               }
             ],
-            "title": "Site Icon"
+            "title": "Site Icon",
+            "description": "The result origin's conventional favicon URL."
           },
           "date": {
             "anyOf": [

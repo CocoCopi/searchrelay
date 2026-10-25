@@ -22,7 +22,25 @@ def test_combined_operators_are_parsed() -> None:
     assert parsed.negative_sites == ("bad.com",)
     assert parsed.languages == ("zh", "en")
     assert parsed.after == date(2024, 1, 1)
-    assert parsed.before == date(2025, 3, 1)
+    assert parsed.before == date(2025, 3, 31)
+
+
+def test_all_supported_date_forms_are_inclusive_calendar_bounds() -> None:
+    parsed = parse_query("topic after:2024 before:2025-03")
+    exact = parse_query("topic after:2024-02-03 before:2024-02-29")
+
+    assert parsed.after == date(2024, 1, 1)
+    assert parsed.before == date(2025, 3, 31)
+    assert exact.after == date(2024, 2, 3)
+    assert exact.before == date(2024, 2, 29)
+
+
+def test_excluded_phrase_is_parsed_separately() -> None:
+    parsed = parse_query('topic -"forbidden phrase" -spam')
+
+    assert parsed.excluded_phrases == ("forbidden phrase",)
+    assert parsed.excluded_terms == ("spam",)
+    assert '-"forbidden phrase"' in parsed.engine_query
 
 
 def test_multiple_site_group_is_parsed() -> None:
@@ -94,6 +112,98 @@ async def test_date_operator_filters_known_result_dates(tmp_path):
     results = response.json()["results"]
     assert len(results) == 1
     assert results[0]["title"] == "New result"
+
+
+@pytest.mark.asyncio
+async def test_operators_are_enforced_locally_after_retrieval(tmp_path):
+    def handler(_: httpx.Request) -> httpx.Response:
+        return searxng_response(
+            [
+                search_result(
+                    title="Needle handbook",
+                    url="https://docs.good.example/needle",
+                    content="The Needle handbook explains the requested topic.",
+                    language="en-US",
+                ),
+                search_result(
+                    title="Blocked site",
+                    url="https://docs.bad.example/needle",
+                    content="The Needle handbook explains the requested topic.",
+                    language="en",
+                ),
+                search_result(
+                    title="Wrong site",
+                    url="https://docs.other.example/needle",
+                    content="The Needle handbook explains the requested topic.",
+                    language="en",
+                ),
+                search_result(
+                    title="Needle handbook spam",
+                    url="https://docs.good.example/spam",
+                    content="The Needle handbook contains spam.",
+                    language="en",
+                ),
+                search_result(
+                    title="Missing required phrase",
+                    url="https://docs.good.example/wrong",
+                    content="This page does not contain the exact phrase.",
+                    language="en",
+                ),
+                search_result(
+                    title="Needle handbook",
+                    url="https://docs.good.example/fr",
+                    content="The Needle handbook explains the requested topic.",
+                    language="fr",
+                ),
+            ]
+        )
+
+    async with api_harness(handler, tmp_path) as (client, _):
+        response = await client.post(
+            "/v1/tools/search",
+            headers=JSON_HEADERS,
+            json={
+                "query": (
+                    '"Needle handbook" site:good.example -site:bad.example '
+                    '-spam -"forbidden phrase" lang:en'
+                ),
+                "count": 10,
+            },
+        )
+
+    assert response.status_code == 200
+    results = response.json()["results"]
+    assert [result["url"] for result in results] == ["https://docs.good.example/needle"]
+
+
+@pytest.mark.asyncio
+async def test_undated_results_are_excluded_when_date_filter_is_set(tmp_path):
+    def handler(_: httpx.Request) -> httpx.Response:
+        return searxng_response(
+            [
+                search_result(
+                    title="Undated",
+                    url="https://example.com/undated",
+                    published_date=None,
+                ),
+                search_result(
+                    title="Dated",
+                    url="https://example.com/dated",
+                    published_date="2025-01-01T00:00:00Z",
+                ),
+            ]
+        )
+
+    async with api_harness(handler, tmp_path) as (client, _):
+        response = await client.post(
+            "/v1/tools/search",
+            headers=JSON_HEADERS,
+            json={"query": "topic after:2024-01-01", "count": 10},
+        )
+
+    assert response.status_code == 200
+    results = response.json()["results"]
+    assert [result["title"] for result in results] == ["Dated"]
 
 
 @pytest.mark.asyncio

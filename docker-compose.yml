@@ -4,8 +4,20 @@ services:
     restart: unless-stopped
     environment:
       SEARXNG_BASE_URL: http://localhost:8080/
+      SEARXNG_SECRET: '${SEARXNG_SECRET:?Set SEARXNG_SECRET in .env}'
+      SEARXNG_SETTINGS_PATH: /tmp/settings.yml
+    entrypoint:
+      - /bin/sh
+      - -ec
+    command:
+      - |
+        case "$$SEARXNG_SECRET" in
+          *[!A-Za-z0-9_-]*) echo 'SEARXNG_SECRET may contain only letters, digits, _ and -' >&2; exit 1 ;;
+        esac
+        sed "s/__SEARXNG_SECRET__/$$SEARXNG_SECRET/g" /etc/searxng/settings.template.yml > /tmp/settings.yml
+        exec /usr/local/searxng/dockerfiles/docker-entrypoint.sh
     volumes:
-      - ./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - ./deploy/searxng/settings.yml:/etc/searxng/settings.template.yml:ro
       - searxng-cache:/var/cache/searxng
     ports:
       - "127.0.0.1:8080:8080"
@@ -32,8 +44,8 @@ services:
         condition: service_healthy
     environment:
       SF_UPSTREAM_URL: http://searxng:8080
-      SF_API_KEYS_JSON: '${SF_API_KEYS_JSON:-{"sk-local-dev":"local-demo"}}'
-      SF_INITIAL_BALANCES_JSON: '${SF_INITIAL_BALANCES_JSON:-{"local-demo":100000000}}'
+      SF_API_KEYS_JSON: '${SF_API_KEYS_JSON:?Set SF_API_KEYS_JSON in .env}'
+      SF_INITIAL_BALANCES_JSON: '${SF_INITIAL_BALANCES_JSON:?Set SF_INITIAL_BALANCES_JSON in .env}'
       SF_DATABASE_PATH: /data/searchfetch.db
       SF_SEARCH_QPS: ${SF_SEARCH_QPS:-100}
       SF_FETCH_QPS: ${SF_FETCH_QPS:-25}

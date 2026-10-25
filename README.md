@@ -21,9 +21,9 @@ The API, ranking, summarization, security, billing, and client layers are indepe
 ## Features
 
 - `POST /v1/tools/search` and `POST /v1/tools/fetch` with the requested JSON contract.
-- Search operators: `site:`, `-site:`, `-term`, `-"phrase"`, `"exact phrase"`, `lang:zh,en`, `after:YYYY[-MM-DD]`, and `before:YYYY[-MM-DD]`.
-- Query-aware snippets/summaries, authority tiers, freshness, quality, relevance, spam penalties, and a normalized `rerank_score` from 0 to 3.
-- Clean HTML-to-Markdown conversion with active/hidden content removal and prompt-injection instruction filtering.
+- Search operators: `site:`, `-site:`, `-term`, `-"phrase"`, `"exact phrase"`, `lang:zh,en`, `after:YYYY[-MM[-DD]]`, and `before:YYYY[-MM[-DD]]`; operators are enforced again locally after retrieval.
+- Query-aware snippets/summaries, authority tiers, freshness, quality, relevance, spam penalties, and a normalized `rerank_score` from 0 to 3 (see [`docs/ranking.md`](docs/ranking.md)).
+- Main-content HTML-to-Markdown conversion with Trafilatura, page-chrome removal, active/hidden content removal, and prompt-injection instruction filtering.
 - SSRF defense: URL validation, public-IP-only DNS resolution, DNS pinning, redirect revalidation, metadata/private-network blocking, no userinfo, and restricted ports.
 - `robots.txt` support and a `DeepSeekBot/1.0` user agent.
 - Account-level, independently tracked Search (100 QPS) and Fetch (25 QPS) sliding-window limits, plus a per-domain Fetch limit.
@@ -86,7 +86,7 @@ Response:
       "summary": "A longer query-focused summary for a model...",
       "content": "# Page title\n\nPage content as Markdown...",
       "site_name": "example.com",
-      "site_icon": null,
+      "site_icon": "https://example.com/favicon.ico",
       "date": "2026-10-25T12:30:00Z",
       "authority": 3
     }
@@ -158,17 +158,20 @@ Both SDKs retry HTTP 408, 429, and 5xx responses with bounded exponential backof
 
 ## Quick start with Docker
 
-1. Create local credentials:
+1. Generate local credentials (there is no built-in default API key or SearXNG secret):
 
    ```bash
-   cat > .env <<'EOF'
-   SEARCHFETCH_API_KEY=sk-local-dev
-   SF_API_KEYS_JSON={"sk-local-dev":"local-demo"}
+   export SEARCHFETCH_API_KEY="sk-$(openssl rand -hex 24)"
+   export SEARXNG_SECRET="$(openssl rand -hex 32)"
+   cat > .env <<EOF
+   SEARCHFETCH_API_KEY=$SEARCHFETCH_API_KEY
+   SEARXNG_SECRET=$SEARXNG_SECRET
+   SF_API_KEYS_JSON={"$SEARCHFETCH_API_KEY":"local-demo"}
    SF_INITIAL_BALANCES_JSON={"local-demo":100000000}
    EOF
    ```
 
-   `SF_INITIAL_BALANCES_JSON` values are micro-US dollars. The example starts with $100.
+   `SF_INITIAL_BALANCES_JSON` values are micro-US dollars. The example starts with $100. Keep `.env` out of version control and rotate credentials before exposing the service.
 
 2. Start the API and SearXNG:
 
@@ -176,13 +179,14 @@ Both SDKs retry HTTP 408, 429, and 5xx responses with bounded exponential backof
    docker compose up --build
    ```
 
-3. Verify:
+3. Verify backend reachability and readiness:
 
    ```bash
-   curl http://localhost:8000/healthz
+   curl -i http://localhost:8000/healthz
+   curl -i http://localhost:8000/readyz
    ```
 
-The API is at `http://localhost:8000`; interactive OpenAPI documentation is at `http://localhost:8000/docs`.
+Both endpoints return HTTP 503 when the configured search backend cannot be reached. The API is at `http://localhost:8000`; interactive OpenAPI documentation is at `http://localhost:8000/docs`.
 
 > The example credential is for local development only. Use a secret manager and rotate it before exposing the service.
 
@@ -193,7 +197,8 @@ SearXNG must be running and its JSON output format enabled. The included [`deplo
 ```bash
 python3.12 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
-export SF_API_KEYS_JSON='{"sk-local-dev":"local-demo"}'
+export SEARCHFETCH_API_KEY="sk-$(openssl rand -hex 24)"
+export SF_API_KEYS_JSON="{\"$SEARCHFETCH_API_KEY\":\"local-demo\"}"
 export SF_INITIAL_BALANCES_JSON='{"local-demo":100000000}'
 export SF_UPSTREAM_URL='http://localhost:8080'
 .venv/bin/uvicorn app.main:app --reload
@@ -225,7 +230,7 @@ All settings use the `SF_` prefix.
 | `SF_UPSTREAM_URL` | `http://searxng:8080` | SearXNG base URL |
 | `SF_UPSTREAM_TIMEOUT_SECONDS` | `10` | Search backend timeout |
 | `SF_DATABASE_PATH` | `data/searchfetch.db` | Billing ledger path |
-| `SF_API_KEYS_JSON` | `{}` | JSON map of bearer key → account ID |
+| `SF_API_KEYS_JSON` | `{}` (startup rejects an empty map) | JSON map of bearer key → account ID |
 | `SF_INITIAL_BALANCES_JSON` | `{}` | JSON map of account ID → micro-US dollars |
 | `SF_KEYS_FILE` | unset | JSON key/balance file |
 | `SF_SEARCH_QPS` | `100` | Account-level Search QPS |
@@ -262,9 +267,11 @@ All settings use the `SF_` prefix.
 ```
 
 ```python
+import os
+
 from searchfetch import SearchFetchClient
 
-with SearchFetchClient("http://localhost:8000", "sk-local-dev") as client:
+with SearchFetchClient("http://localhost:8000", os.environ["SEARCHFETCH_API_KEY"]) as client:
     results = client.search("FastAPI asyncio", count=5)
     page = client.fetch(results[0].url)
 ```
@@ -277,8 +284,10 @@ go test ./...
 ```
 
 ```go
+import "os"
+
 ctx := context.Background()
-client := searchfetch.New("http://localhost:8000", "sk-local-dev")
+client := searchfetch.New("http://localhost:8000", os.Getenv("SEARCHFETCH_API_KEY"))
 results, err := client.Search(ctx, "FastAPI asyncio", searchfetch.SearchOptions{Count: 5})
 page, err := client.Fetch(ctx, results[0].URL)
 ```

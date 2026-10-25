@@ -70,6 +70,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        runtime_settings.validate_runtime_config()
         billing = BillingStore(
             runtime_settings.database_path,
             runtime_settings.price_micros_per_request,
@@ -117,6 +118,7 @@ def create_app(
             upstream_url=runtime_settings.upstream_url,
             timeout_seconds=runtime_settings.upstream_timeout_seconds,
         )
+        app.state.backend = backend
         app.state.search_pipeline = SearchPipeline(
             backend=backend,
             fetcher=fetcher,
@@ -174,8 +176,20 @@ def create_app(
         return await call_next(request)
 
     @app.get("/healthz", include_in_schema=False)
-    async def healthz() -> dict[str, str]:
-        return {"status": "ok"}
+    async def healthz(request: Request) -> JSONResponse:
+        healthy = await request.app.state.backend.healthcheck()
+        return JSONResponse(
+            status_code=200 if healthy else 503,
+            content={"status": "ok" if healthy else "unavailable"},
+        )
+
+    @app.get("/readyz", include_in_schema=False)
+    async def readyz(request: Request) -> JSONResponse:
+        healthy = await request.app.state.backend.healthcheck()
+        return JSONResponse(
+            status_code=200 if healthy else 503,
+            content={"status": "ready" if healthy else "not_ready"},
+        )
 
     @app.post(
         "/v1/tools/search",

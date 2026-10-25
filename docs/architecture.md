@@ -43,32 +43,25 @@ The parser recognizes:
 - `-"exact phrase"`
 - `"exact phrase"`
 - `lang:zh,en`
-- `after:YYYY` or `after:YYYY-MM`
-- `before:YYYY` or `before:YYYY-MM`
+- `after:YYYY`, `after:YYYY-MM`, or `after:YYYY-MM-DD`
+- `before:YYYY`, `before:YYYY-MM`, or `before:YYYY-MM-DD`
 - multiple sites: `"site:a.com OR site:b.com"`
 
-Parsed operators are translated into the upstream query and request parameters. Date constraints are also applied to results with known publication dates. Results without dates are retained because an upstream engine may not expose a reliable date.
+Parsed operators are translated into the upstream query and request parameters, then applied again locally to retrieved candidates. The local filter enforces positive and negative site constraints, excluded terms and phrases, required phrases, and language metadata. A candidate without verifiable language metadata is rejected when `lang:` is present.
+
+Date constraints accept `YYYY`, `YYYY-MM`, and `YYYY-MM-DD`. Bounds are inclusive: `after:2025-03` starts on March 1 and `before:2025-03` ends on March 31. When any date bound is present, results without a verifiable publication date are excluded rather than presented as if they satisfied the filter.
 
 `ori_question` is retained separately from the rewritten engine query. It drives sentence relevance when constructing the UI snippet and model summary.
 
 ## Ranking
 
-`rerank_score` is normalized to 0–3. The current signals are:
-
-- authority tier: 35%;
-- freshness: 20%;
-- page/result quality: 25%;
-- query relevance: 15%;
-- click/engine prior: 5%;
-- explicit spam penalty.
-
-Scores of 1.5 or greater are intended to identify high-quality results. The authority tier ranges from -1 (unknown) through 4 (highly authoritative). The implementation uses transparent domain and page heuristics; a production deployment should replace this with a trained authority model and audited tier data.
+`rerank_score` is normalized to 0–3. The weighted signals are authority tier (35%), freshness (20%), page/result quality (25%), query relevance (15%), and click/engine prior (5%). The normalized weighted value is multiplied by 3, then an explicit spam penalty is subtracted. Scores of 1.5 or greater identify high-quality results under this heuristic. The authority tier ranges from -1 (unknown) through 4 (highly authoritative). The implementation uses transparent domain and page heuristics; it is not an audited trust score. See [`ranking.md`](ranking.md) for the exact formula and a worked example.
 
 The upstream engine score is used as a relevance/click prior. There is no click collection endpoint in this API contract.
 
 ## Summary generation
 
-The service uses extractive, query-focused summarization so it does not hallucinate facts or require another paid model dependency. It selects and orders source sentences based on query-term overlap, then bounds output to the requested approximate lengths.
+The service uses main-content extraction with Trafilatura and then extractive, query-focused summarization, so it does not hallucinate facts or require another paid model dependency. Navigation, common consent banners, and link-collection chrome are removed before snippets or summaries are produced. It selects and orders source sentences based on query-term overlap, then bounds output to the requested approximate lengths.
 
 A production deployment can replace `app/excerpt.py` with a model-backed summarizer while preserving the response fields. In that design:
 

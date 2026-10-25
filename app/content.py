@@ -4,6 +4,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
+import trafilatura
 from bs4 import BeautifulSoup, Comment
 from markdownify import markdownify as convert_to_markdown
 
@@ -26,20 +27,61 @@ class ExtractedPage:
 
 
 def extract_page(raw_html: str) -> ExtractedPage:
+    """Extract the main article as Markdown, excluding page chrome.
+
+    Trafilatura performs boilerplate removal before the result is used for a
+    snippet or summary. The conservative fallback only accepts explicit
+    ``main``/``article`` roots so navigation, cookie notices, and link lists
+    cannot leak into extracted content.
+    """
+
     soup = BeautifulSoup(raw_html, "html.parser")
     title = _extract_title(soup)
     _remove_unsafe_nodes(soup)
-    root = soup.find("main") or soup.find("article") or soup.body or soup
-    markdown = convert_to_markdown(str(root), heading_style="ATX", bullets="-")
+    _remove_page_chrome(soup)
+    markdown = trafilatura.extract(
+        str(soup),
+        output_format="markdown",
+        include_links=False,
+        include_tables=True,
+        include_comments=False,
+        favor_recall=True,
+    )
+
+    if not markdown or not markdown.strip():
+        root = soup.find("main") or soup.find("article")
+        markdown = (
+            convert_to_markdown(str(root), heading_style="ATX", bullets="-")
+            if root is not None
+            else ""
+        )
+
     markdown = _normalize_markdown(markdown)
     markdown = sanitize_untrusted_text(markdown)
     return ExtractedPage(title=title, content=markdown)
 
 
 def html_to_text(raw_html: str) -> str:
+    """Extract main text from an HTML fragment without page boilerplate."""
+
     soup = BeautifulSoup(raw_html, "html.parser")
     _remove_unsafe_nodes(soup)
-    return sanitize_untrusted_text(soup.get_text(" ", strip=True))
+    _remove_page_chrome(soup)
+    extracted = trafilatura.extract(
+        str(soup),
+        output_format="txt",
+        include_links=False,
+        include_tables=True,
+        include_comments=False,
+        favor_recall=True,
+    )
+    if extracted and extracted.strip():
+        return sanitize_untrusted_text(extracted)
+
+    root = soup.find("main") or soup.find("article")
+    if root is None:
+        return ""
+    return sanitize_untrusted_text(root.get_text(" ", strip=True))
 
 
 def sanitize_untrusted_text(value: str) -> str:
@@ -109,6 +151,60 @@ def _remove_unsafe_nodes(soup: BeautifulSoup) -> None:
             value = str(attrs.get(attribute, "")).strip().casefold()
             if value.startswith(("javascript:", "vbscript:", "data:")):
                 del attrs[attribute]
+
+
+def _remove_page_chrome(soup: BeautifulSoup) -> None:
+    """Remove common consent notices and navigation-style link collections."""
+
+    chrome_markers = (
+        "cookie",
+        "consent",
+        "gdpr",
+        "privacy-notice",
+        "newsletter",
+        "link-list",
+        "related-links",
+        "social-links",
+        "site-navigation",
+    )
+    for element in list(soup.find_all(True)):
+        attrs = element.attrs or {}
+        role = str(attrs.get("role", "")).casefold()
+        markers = " ".join(
+            [
+                str(attrs.get("id", "")),
+                " ".join(attrs.get("class", []))
+                if isinstance(attrs.get("class", []), list)
+                else str(attrs.get("class", "")),
+            ]
+        ).casefold()
+        if role in {"navigation", "menu"} or any(
+            marker in markers for marker in chrome_markers
+        ):
+            element.decompose()
+
+    _remove_link_lists(soup)
+    _remove_cookie_leaf_nodes(soup)
+
+
+def _remove_link_lists(soup: BeautifulSoup) -> None:
+    for list_element in list(soup.find_all(["ul", "ol"])):
+        items = list_element.find_all("li", recursive=False)
+        if len(items) < 2:
+            continue
+        linked_items = sum(1 for item in items if item.find("a") is not None)
+        if linked_items * 2 >= len(items):
+            list_element.decompose()
+
+
+def _remove_cookie_leaf_nodes(soup: BeautifulSoup) -> None:
+    notices = ("accept all cookies", "accept cookies", "we use cookies", "cookie preferences")
+    for element in list(soup.find_all(["div", "p", "span"])):
+        if element.find(True) is not None:
+            continue
+        text = element.get_text(" ", strip=True).casefold()
+        if len(text) <= 300 and any(notice in text for notice in notices):
+            element.decompose()
 
 
 def _normalize_markdown(value: str) -> str:

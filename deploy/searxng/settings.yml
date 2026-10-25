@@ -3,7 +3,8 @@ use_default_settings: true
 server:
   bind_address: "0.0.0.0"
   port: 8080
-  secret_key: "local-development-only-change-this-secret"
+  # Replaced at container startup from the required SEARXNG_SECRET variable.
+  secret_key: "__SEARXNG_SECRET__"
   limiter: false
   image_proxy: false
 

@@ -57,6 +57,7 @@ def search_result(
     url: str = "https://www.nature.com/articles/example",
     content: str | None = None,
     published_date: str | None = "2026-10-20T12:00:00Z",
+    language: str | None = None,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {
         "title": title,
@@ -70,6 +71,8 @@ def search_result(
     }
     if published_date is not None:
         result["publishedDate"] = published_date
+    if language is not None:
+        result["language"] = language
     return result
 
 

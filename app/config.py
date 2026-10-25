@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     upstream_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
     engine_name: str = "searxng"
 
-    api_keys_json: dict[str, str] = Field(default_factory=dict)
-    initial_balances_json: dict[str, int] = Field(default_factory=dict)
+    api_keys_json: Annotated[dict[str, str], NoDecode] = Field(default_factory=dict)
+    initial_balances_json: Annotated[dict[str, int], NoDecode] = Field(default_factory=dict)
     keys_file: Path | None = None
 
     database_path: Path = Path("data/searchfetch.db")
@@ -60,6 +60,23 @@ class Settings(BaseSettings):
     @classmethod
     def validate_database_path(cls, value: Path) -> Path:
         return value.expanduser()
+
+    @field_validator("api_keys_json", "initial_balances_json", mode="before")
+    @classmethod
+    def parse_json_mapping(cls, value: Any) -> Any:
+        if value is None:
+            return {}
+        if not isinstance(value, str):
+            return value
+        if not value.strip():
+            return {}
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise ValueError("must be a valid JSON object") from exc
+        if not isinstance(decoded, dict):
+            raise ValueError("must be a valid JSON object")
+        return decoded
 
     def _read_keys_file(self) -> tuple[dict[str, str], dict[str, int]]:
         if not self.keys_file:
@@ -96,6 +113,19 @@ class Settings(BaseSettings):
 
     def allowed_domains(self) -> set[str]:
         return _csv_set(self.allowed_domains_csv)
+
+    def validate_runtime_config(self) -> None:
+        """Fail fast with actionable configuration errors at service startup."""
+
+        problems: list[str] = []
+        if not self.effective_api_keys():
+            problems.append(
+                "SF_API_KEYS_JSON or SF_KEYS_FILE must define at least one API key"
+            )
+        if not self.upstream_url:
+            problems.append("SF_UPSTREAM_URL must be set")
+        if problems:
+            raise RuntimeError("SearchRelay startup configuration error: " + "; ".join(problems))
 
     def request_limits(self) -> dict[str, Any]:
         return {

@@ -45,6 +45,7 @@ async def test_search_contract_and_unknown_fields_are_ignored(tmp_path):
     assert 0 <= result["rerank_score"] <= 3
     assert result["content"] == ""
     assert result["site_name"] == "nature.com"
+    assert result["site_icon"] == "https://www.nature.com/favicon.ico"
     assert result["date"] == "2026-10-20T12:00:00Z"
     assert result["authority"] == 3
     assert len(result["snippet"]) <= 200
@@ -77,6 +78,7 @@ async def test_search_with_no_matches_returns_empty_results(tmp_path):
         {"query": "valid", "count": 51},
         {"query": "valid", "count": 1.5},
         {"query": "valid", "ori_question": ""},
+        {"query": "valid", "localization": "not-an-ip-address"},
         {"query": "x" * 129},
     ],
 )

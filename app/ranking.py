@@ -107,15 +107,23 @@ class Ranker:
         )
 
     def rerank_score(self, signals: RankSignals) -> float:
+        """Return a normalized 0–3 score.
+
+        Every weighted component is in the inclusive 0–1 range and the weights
+        sum to 1.0. The weighted result is therefore in 0–1 before it is
+        multiplied by 3. The spam penalty is expressed directly in final-score
+        points so it remains meaningful on the public scale.
+        """
+
         authority_component = max(signals.authority, 0) / 4 * 0.35
-        score = (
+        weighted_score = (
             authority_component
             + signals.freshness * 0.20
             + signals.quality * 0.25
             + signals.relevance * 0.15
             + signals.click_prior * 0.05
         )
-        score -= signals.spam_penalty
+        score = weighted_score * 3.0 - signals.spam_penalty
         return round(max(0.0, min(3.0, score)), 3)
 
 

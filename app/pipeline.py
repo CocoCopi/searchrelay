@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import timezone
 from urllib.parse import urlsplit
 
@@ -10,7 +11,7 @@ from app.errors import APIError
 from app.excerpt import make_snippet, make_summary
 from app.fetch import FetchService
 from app.models import SearchRequest, SearchResult
-from app.operators import date_is_in_range, parse_query
+from app.operators import ParsedQuery, date_is_in_range, parse_query
 from app.ranking import Ranker
 
 
@@ -80,7 +81,7 @@ class SearchPipeline:
                     summary=summary,
                     content=page_content if request.need_content else "",
                     site_name=_site_name(candidate.url),
-                    site_icon=None,
+                    site_icon=_site_icon(candidate.url),
                     date=_format_date(candidate.date),
                     authority=signals.authority,
                 )
@@ -90,9 +91,11 @@ class SearchPipeline:
     def _filter_candidates(
         self,
         candidates: list[SearchCandidate],
-        parsed,
+        parsed: ParsedQuery,
         count: int,
     ) -> list[SearchCandidate]:
+        """Enforce operators locally instead of trusting provider behavior."""
+
         filtered: list[SearchCandidate] = []
         seen: set[str] = set()
         for candidate in candidates:
@@ -100,11 +103,21 @@ class SearchPipeline:
                 continue
             try:
                 parsed_url = urlsplit(candidate.url)
-                host = (parsed_url.hostname or "").casefold()
+                host = (parsed_url.hostname or "").casefold().rstrip(".")
             except ValueError:
                 continue
             if not host:
                 continue
+            if not _matches_sites(host, parsed.positive_sites, parsed.negative_sites):
+                continue
+            corpus = f"{candidate.title}\n{candidate.snippet}"
+            if not _matches_phrases(corpus, parsed.phrases, parsed.excluded_phrases):
+                continue
+            if not _matches_excluded_terms(corpus, parsed.excluded_terms):
+                continue
+            if not _matches_language(candidate.language, parsed.languages):
+                continue
+
             normalized = f"{parsed_url.scheme.casefold()}://{parsed_url.netloc.casefold()}{parsed_url.path}"
             if normalized in seen:
                 continue
@@ -123,6 +136,82 @@ def _site_name(url: str) -> str | None:
     if not host:
         return None
     return host.casefold().removeprefix("www.")
+
+
+def _site_icon(url: str) -> str | None:
+    """Return the origin's conventional favicon URL without fetching it."""
+
+    try:
+        parsed = urlsplit(url)
+        host = parsed.hostname
+        port = parsed.port
+    except ValueError:
+        return None
+    if not host or parsed.scheme not in {"http", "https"}:
+        return None
+    authority = host.casefold()
+    if ":" in authority:
+        authority = f"[{authority}]"
+    if port is not None:
+        authority = f"{authority}:{port}"
+    return f"{parsed.scheme.casefold()}://{authority}/favicon.ico"
+
+
+def _matches_sites(host: str, positive: tuple[str, ...], negative: tuple[str, ...]) -> bool:
+    if any(_host_matches(host, site) for site in negative):
+        return False
+    if positive and not any(_host_matches(host, site) for site in positive):
+        return False
+    return True
+
+
+def _host_matches(host: str, site: str) -> bool:
+    normalized = site.casefold().rstrip(".")
+    return host == normalized or host.endswith(f".{normalized}")
+
+
+def _matches_phrases(
+    corpus: str,
+    required: tuple[str, ...],
+    excluded: tuple[str, ...],
+) -> bool:
+    normalized = _normalized_text(corpus)
+    if any(_normalized_text(phrase) not in normalized for phrase in required):
+        return False
+    return all(_normalized_text(phrase) not in normalized for phrase in excluded)
+
+
+def _matches_excluded_terms(corpus: str, excluded: tuple[str, ...]) -> bool:
+    return all(not _contains_term(corpus, term) for term in excluded)
+
+
+def _contains_term(corpus: str, term: str) -> bool:
+    term = term.strip()
+    if not term:
+        return False
+    if all(part.isalnum() or part == "_" for part in term):
+        pattern = rf"(?<!\w){re.escape(term)}(?!\w)"
+        return re.search(pattern, corpus, flags=re.IGNORECASE | re.UNICODE) is not None
+    return term.casefold() in corpus.casefold()
+
+
+def _normalized_text(value: str) -> str:
+    return " ".join(value.casefold().split())
+
+
+def _matches_language(language: str | None, requested: tuple[str, ...]) -> bool:
+    if not requested:
+        return True
+    if not language:
+        return False
+    candidate = language.casefold().replace("_", "-")
+    for expected in requested:
+        normalized = expected.casefold().replace("_", "-")
+        if candidate == normalized or candidate.startswith(f"{normalized}-"):
+            return True
+        if "-" not in normalized and "-" in candidate and candidate.split("-", 1)[0] == normalized:
+            return True
+    return False
 
 
 def _format_date(value) -> str | None:

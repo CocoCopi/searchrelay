@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import calendar
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
 
@@ -15,6 +16,7 @@ class ParsedQuery:
     terms: tuple[str, ...] = ()
     phrases: tuple[str, ...] = ()
     excluded_terms: tuple[str, ...] = ()
+    excluded_phrases: tuple[str, ...] = ()
     positive_sites: tuple[str, ...] = ()
     negative_sites: tuple[str, ...] = ()
     languages: tuple[str, ...] = ()
@@ -33,6 +35,7 @@ class ParsedQuery:
             parts.append(f"({sites})")
         parts.extend(f"-site:{site}" for site in self.negative_sites)
         parts.extend(f"-{term}" for term in self.excluded_terms)
+        parts.extend(f'-"{phrase}"' for phrase in self.excluded_phrases)
         return " ".join(parts).strip()
 
     @property
@@ -45,7 +48,7 @@ class ParsedQuery:
         return tuple(values)
 
 
-_TOKEN_RE = re.compile(r'"(?:\\.|[^"\\])*"|[^\s]+')
+_TOKEN_RE = re.compile(r'-?"(?:\\.|[^"\\])*"|[^\s]+')
 _SITE_GROUP_RE = re.compile(r"site:([A-Za-z0-9.-]+)", flags=re.IGNORECASE)
 _SITE_SEQUENCE_RE = re.compile(
     r"site:[A-Za-z0-9.-]+(?:\s+OR\s+site:[A-Za-z0-9.-]+)+",
@@ -58,6 +61,7 @@ def parse_query(query: str) -> ParsedQuery:
     terms: list[str] = []
     phrases: list[str] = []
     excluded_terms: list[str] = []
+    excluded_phrases: list[str] = []
     positive_sites: list[str] = []
     negative_sites: list[str] = []
     languages: list[str] = []
@@ -106,7 +110,7 @@ def parse_query(query: str) -> ParsedQuery:
             continue
 
         if separator and key in {"after", "before"} and argument:
-            parsed_date = _parse_operator_date(argument)
+            parsed_date = _parse_operator_date(argument, boundary=key)
             if key == "after":
                 if after is not None and after != parsed_date:
                     raise OperatorError("Multiple after dates are not supported")
@@ -117,7 +121,12 @@ def parse_query(query: str) -> ParsedQuery:
                 before = parsed_date
             continue
 
-        if negative:
+        if negative and operator_value.startswith('"') and operator_value.endswith('"'):
+            excluded_phrase = operator_value[1:-1].strip()
+            if not excluded_phrase:
+                raise OperatorError(f"Invalid excluded phrase: {value}")
+            excluded_phrases.append(excluded_phrase)
+        elif negative:
             excluded_terms.append(operator_value)
         elif quoted:
             phrases.append(value)
@@ -132,6 +141,7 @@ def parse_query(query: str) -> ParsedQuery:
         terms=tuple(terms),
         phrases=tuple(phrases),
         excluded_terms=tuple(excluded_terms),
+        excluded_phrases=tuple(excluded_phrases),
         positive_sites=tuple(positive_sites),
         negative_sites=tuple(negative_sites),
         languages=tuple(languages),
@@ -188,24 +198,44 @@ def _parse_quoted_site_group(argument: str) -> list[str]:
     return sites
 
 
-def _parse_operator_date(value: str) -> date:
+def _parse_operator_date(value: str, *, boundary: str) -> date:
+    """Parse an inclusive date bound.
+
+    ``after`` uses the first day of the requested period and ``before`` uses
+    its last day. Exact dates therefore remain inclusive on both sides.
+    """
+
     value = value.strip()
     if re.fullmatch(r"\d{4}", value):
         year = int(value)
         if year < 1 or year > 9999:
             raise OperatorError(f"Invalid date operator: {value}")
-        return date(year, 1, 1)
+        if boundary == "after":
+            return date(year, 1, 1)
+        return date(year, 12, 31)
     if re.fullmatch(r"\d{4}-\d{2}", value):
         try:
-            return datetime.strptime(value, "%Y-%m").date()
+            parsed = datetime.strptime(value, "%Y-%m").date()
+        except ValueError as exc:
+            raise OperatorError(f"Invalid date operator: {value}") from exc
+        if boundary == "after":
+            return parsed
+        return parsed.replace(day=calendar.monthrange(parsed.year, parsed.month)[1])
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        try:
+            return datetime.strptime(value, "%Y-%m-%d").date()
         except ValueError as exc:
             raise OperatorError(f"Invalid date operator: {value}") from exc
     raise OperatorError(f"Invalid date operator: {value}")
 
 
 def date_is_in_range(value: datetime | None, after: date | None, before: date | None) -> bool:
-    if value is None or (after is None and before is None):
+    if after is None and before is None:
         return True
+    # A date-filtered result must carry a verifiable publication date. Keeping
+    # undated results would make the local filter weaker than the operator.
+    if value is None:
+        return False
     if value.tzinfo is None:
         value = value.replace(tzinfo=timezone.utc)
     day = value.astimezone(timezone.utc).date()

@@ -20,6 +20,7 @@ class SearchCandidate:
     date: datetime | None = None
     engine_score: float | None = None
     source_engine: str | None = None
+    language: str | None = None
 
 
 class SearchBackend(Protocol):
@@ -30,6 +31,8 @@ class SearchBackend(Protocol):
         count: int,
         localization: str,
     ) -> list[SearchCandidate]: ...
+
+    async def healthcheck(self) -> bool: ...
 
 
 class SearXNGBackend:
@@ -82,6 +85,16 @@ class SearXNGBackend:
                 break
 
         return candidates
+
+    async def healthcheck(self) -> bool:
+        try:
+            response = await self.client.get(
+                f"{self.upstream_url}/healthz",
+                timeout=min(self.timeout_seconds, 5.0),
+            )
+        except httpx.HTTPError:
+            return False
+        return 200 <= response.status_code < 300
 
     async def _request_page(
         self,
@@ -151,6 +164,7 @@ def _candidate_from_result(raw: dict) -> SearchCandidate | None:
     except (TypeError, ValueError):
         engine_score = None
     source = raw.get("engine")
+    language = raw.get("language") or raw.get("lang")
     return SearchCandidate(
         title=title,
         url=url,
@@ -158,6 +172,7 @@ def _candidate_from_result(raw: dict) -> SearchCandidate | None:
         date=_parse_datetime(raw.get("publishedDate")),
         engine_score=engine_score,
         source_engine=str(source) if source is not None else None,
+        language=str(language).strip().casefold() or None if language is not None else None,
     )
 
 

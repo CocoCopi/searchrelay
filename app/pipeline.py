@@ -16,9 +16,8 @@ from app.fetch import FetchService
 from app.models import SearchRequest, SearchResult
 from app.operators import ParsedQuery, date_is_in_range, parse_query
 from app.providers.base import SearchCandidate, SearchProvider
-from app.ranking import Ranker
+from app.ranking import Ranker, RankSignals
 from app.rerank import CrossEncoderReranker
-
 
 logger = logging.getLogger("searchrelay.pipeline")
 
@@ -102,10 +101,10 @@ class SearchPipeline:
             return candidate, page_content
 
         materialized = await asyncio.gather(*(materialize(item) for item in candidates))
-        prepared: list[tuple[SearchCandidate, str, str, str, str, object]] = []
+        prepared: list[tuple[SearchCandidate, str, str, str, str, RankSignals]] = []
         for candidate, page_content in materialized:
             source = page_content or candidate.snippet
-            title = candidate.title or _site_name(candidate.url)
+            title = candidate.title or _site_name(candidate.url) or ""
             snippet = make_snippet(source, request.ori_question or request.query)
             summary = make_summary(source, request.ori_question or request.query)
             signals = self.ranker.signals(

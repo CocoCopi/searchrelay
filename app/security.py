@@ -8,7 +8,6 @@ from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from app.errors import APIError
 
-
 BLOCKED_HOSTNAMES = {
     "localhost",
     "localhost.localdomain",
@@ -155,7 +154,7 @@ async def resolve_public_addresses(hostname: str, timeout: float = 5.0) -> list[
     except (TimeoutError, socket.gaierror, OSError) as exc:
         raise APIError(404, "URL could not be resolved", "no_usable_content") from exc
 
-    addresses = sorted({record[4][0] for record in records})
+    addresses = sorted({str(record[4][0]) for record in records})
     if not addresses:
         raise APIError(404, "URL could not be resolved", "no_usable_content")
     for address_text in addresses:
@@ -169,6 +168,8 @@ async def resolve_public_addresses(hostname: str, timeout: float = 5.0) -> list[
 
 
 def is_public_ip(address: ipaddress._BaseAddress) -> bool:
+    if not isinstance(address, (ipaddress.IPv4Address, ipaddress.IPv6Address)):
+        return False
     if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
         address = address.ipv4_mapped
     return bool(address.is_global and not address.is_multicast and not address.is_unspecified)

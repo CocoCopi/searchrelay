@@ -29,7 +29,6 @@ from pathlib import Path
 
 import yaml
 
-
 DEFAULT_TIERS: dict[int, tuple[str, ...]] = {
     4: (
         "who.int",

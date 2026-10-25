@@ -6,6 +6,7 @@ Each application instance owns its own registry so that repeated
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 from prometheus_client import (
@@ -94,7 +95,7 @@ class Metrics:
                 "Live cache counters.",
                 registry=self.registry,
             )
-            gauge.set_function(lambda attribute=attribute: float(getattr(stats, attribute)))
+            gauge.set_function(partial(_read_gauge, stats, attribute))
 
     def record_billing(self, *, action: str, charged: bool) -> None:
         self.billing_charges.labels(action=action, result="charged" if charged else "rejected").inc()
@@ -110,6 +111,10 @@ class Metrics:
         """Return the exposition payload and its content type."""
 
         return generate_latest(self.registry), CONTENT_TYPE_LATEST
+
+
+def _read_gauge(stats: Any, attribute: str) -> float:
+    return float(getattr(stats, attribute))
 
 
 def route_label(request: Any, fallback: str = "unmatched") -> str:

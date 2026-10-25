@@ -7,18 +7,9 @@ from io import BytesIO
 
 import trafilatura
 from bs4 import BeautifulSoup, Comment
+from charset_normalizer import from_bytes as _detect_charset
 from markdownify import markdownify as convert_to_markdown
-
-try:  # Optional but recommended: used when the response has no usable charset.
-    from charset_normalizer import from_bytes as _detect_charset
-except ImportError:  # pragma: no cover - exercised only without the extra
-    _detect_charset = None
-
-try:
-    from pypdf import PdfReader
-except ImportError:  # pragma: no cover - exercised only without the extra
-    PdfReader = None
-
+from pypdf import PdfReader
 
 _INJECTION_PATTERNS = (
     re.compile(r"\bignore\s+(?:all\s+|any\s+)?(?:previous|prior|above)\s+instructions?\b", re.I),
@@ -110,8 +101,6 @@ def pdf_to_markdown(data: bytes) -> ExtractedPage:
     result is plain text rather than reconstructed headings and tables.
     """
 
-    if PdfReader is None:  # pragma: no cover - exercised only without the extra
-        raise ValueError("PDF support requires the 'pypdf' package")
     try:
         reader = PdfReader(BytesIO(data))
     except Exception as exc:
@@ -300,11 +289,15 @@ def _code_languages(soup: BeautifulSoup) -> list[str]:
         candidates = [block, code] if code is not None else [block]
         language = ""
         for candidate in candidates:
-            classes = candidate.get("class") if candidate is not None else None
-            if not classes:
+            raw_classes = candidate.get("class") if candidate is not None else None
+            if raw_classes is None:
                 continue
-            if isinstance(classes, str):
-                classes = [classes]
+            if isinstance(raw_classes, str):
+                classes = [raw_classes]
+            elif isinstance(raw_classes, list):
+                classes = [str(value) for value in raw_classes]
+            else:
+                classes = []
             for value in classes:
                 match = _LANGUAGE_CLASS_RE.search(str(value))
                 if match:

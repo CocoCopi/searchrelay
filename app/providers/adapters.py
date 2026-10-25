@@ -436,7 +436,13 @@ def _optional_text(value: object) -> str | None:
 
 
 def _float(value: object) -> float | None:
-    try:
-        return float(value) if value is not None else None
-    except (TypeError, ValueError):
+    if isinstance(value, bool) or value is None:
         return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None

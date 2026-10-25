@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.ranking import RankSignals, Ranker
+from app.ranking import Ranker, RankSignals
 
 
 def test_rerank_score_uses_full_zero_to_three_scale() -> None:

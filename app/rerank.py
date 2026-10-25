@@ -57,7 +57,11 @@ class CrossEncoderReranker:
     def _score_batch(self, query: str, documents: list[str]) -> list[float]:
         import numpy as np
 
-        encodings = self._tokenizer.encode_batch([(query, document) for document in documents])
+        tokenizer = self._tokenizer
+        session = self._session
+        if tokenizer is None or session is None:
+            raise CrossEncoderUnavailable("the cross-encoder model was not initialized")
+        encodings = tokenizer.encode_batch([(query, document) for document in documents])
         input_ids = np.array([encoding.ids for encoding in encodings], dtype=np.int64)
         attention_mask = np.array(
             [encoding.attention_mask for encoding in encodings], dtype=np.int64
@@ -66,12 +70,12 @@ class CrossEncoderReranker:
             "input_ids": input_ids,
             "attention_mask": attention_mask,
         }
-        for model_input in self._session.get_inputs():
+        for model_input in session.get_inputs():
             if model_input.name in inputs:
                 continue
             if model_input.name == "token_type_ids":
                 inputs[model_input.name] = np.zeros_like(input_ids)
-        outputs = self._session.run(None, inputs)
+        outputs = session.run(None, inputs)
         logits = np.asarray(outputs[0])
         if logits.ndim == 2:
             logits = logits[:, 0]

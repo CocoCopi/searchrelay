@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from tests.helpers import AUTH_HEADERS, JSON_HEADERS, api_harness, search_result, searxng_response
+from tests.helpers import JSON_HEADERS, api_harness, search_result, searxng_response
 
 
 @pytest.mark.asyncio

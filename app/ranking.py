@@ -9,7 +9,6 @@ from urllib.parse import urlsplit
 from app.authority import AuthorityConfig
 from app.rerank import normalize_logit
 
-
 SPAM_PATTERNS = (
     re.compile(r"\b(?:casino|crypto airdrop|guaranteed profit|buy now)\b", re.I),
     re.compile(r"\b(?:cheap pills|free money|work from home and earn)\b", re.I),

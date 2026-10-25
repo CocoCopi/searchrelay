@@ -4,7 +4,6 @@ import re
 
 from app.content import sanitize_untrusted_text
 
-
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?。！？])\s+|\n{2,}")
 _WORD_BREAK = re.compile(r"\s")
 

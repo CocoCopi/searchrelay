@@ -20,7 +20,7 @@ def _server(handler) -> SearchRelayMCPServer:
 def _search_handler(request: httpx.Request) -> httpx.Response:
     assert request.headers["Authorization"] == "Bearer sk-test"
     assert request.headers["Content-Type"] == "application/json"
-    payload = json.loads(request.content)
+    json.loads(request.content)
     return httpx.Response(
         200,
         json={

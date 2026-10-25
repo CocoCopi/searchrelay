@@ -421,16 +421,44 @@ and the container images are documented in [`docs/operations.md`](docs/operation
 curl -s http://localhost:8000/metrics | head
 ```
 
-## Tests and checks
+## Tests, benchmarks, and checks
 
 ```bash
 .venv/bin/pytest
+.venv/bin/ruff check .
+.venv/bin/mypy
 .venv/bin/python -m compileall -q app clients/python examples
 .venv/bin/python scripts/export_openapi.py /tmp/openapi.json
 cd clients/go && go test ./...
 ```
 
 The test suite uses mocked upstream HTTP responses, so it does not require internet access or a running SearXNG instance.
+
+The benchmark harness validates all 100 golden-set queries without network access:
+
+```bash
+.venv/bin/python -m benchmarks.run --self-test \
+  --providers brave,serper,tavily,exa,searxng
+```
+
+A live quality run requires official provider credentials and records the exact command, date, configuration, nDCG@10, p50/p95 latency, and failure rate:
+
+```bash
+.venv/bin/python -m benchmarks.run \
+  --providers brave,serper,tavily,exa,searxng \
+  --output benchmarks/results/live.json \
+  --markdown docs/benchmarks.md
+```
+
+See [`docs/benchmarks.md`](docs/benchmarks.md) for the current report and its limitations. The committed report is a synthetic harness self-test, not a live provider quality claim.
+
+A Locust load test is included at `benchmarks/load_test.py`:
+
+```bash
+export SEARCHFETCH_API_KEY=sk-test
+.venv/bin/locust -f benchmarks/load_test.py --host http://127.0.0.1:8000 \
+  --users 20 --spawn-rate 5 --run-time 2m --headless
+```
 
 ## Project layout
 

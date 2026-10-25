@@ -51,9 +51,9 @@ class FederatedSearchProvider:
         )
 
         successful: list[ProviderSearchResult] = []
-        failures: list[Exception] = []
+        failures: list[BaseException] = []
         for response in responses:
-            if isinstance(response, Exception):
+            if isinstance(response, BaseException):
                 failures.append(response)
                 continue
             successful.append(response)

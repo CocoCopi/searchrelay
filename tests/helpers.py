@@ -9,7 +9,6 @@ import httpx
 from app.config import Settings
 from app.main import create_app
 
-
 Handler = Callable[[httpx.Request], httpx.Response]
 
 

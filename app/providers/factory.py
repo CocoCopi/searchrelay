@@ -13,6 +13,7 @@ from app.providers.adapters import (
     SerperProvider,
     TavilyProvider,
 )
+from app.providers.base import SearchProvider
 from app.providers.config import ProviderRuntimeConfig, load_provider_configs
 from app.providers.federation import FederatedSearchProvider
 from app.providers.local import LocalIndexProvider
@@ -28,7 +29,7 @@ def build_search_provider(
     providers = []
     max_results: dict[str, int] = {}
     for provider_config in configs:
-        raw_provider = _build_provider(provider_config, client)
+        raw_provider = build_provider(provider_config, client)
         resilient = ResilientProvider(
             raw_provider,
             ReliabilityConfig(
@@ -51,7 +52,10 @@ def build_search_provider(
     )
 
 
-def _build_provider(config: ProviderRuntimeConfig, client: httpx.AsyncClient):
+def build_provider(
+    config: ProviderRuntimeConfig,
+    client: httpx.AsyncClient,
+) -> SearchProvider:
     if config.name == "searxng":
         return SearXNGBackend(
             client=client,

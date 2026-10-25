@@ -8,7 +8,7 @@ import pytest
 
 from app.metrics import Metrics
 from app.observability import JsonLogFormatter, configure_logging
-from tests.helpers import AUTH_HEADERS, JSON_HEADERS, api_harness, search_result
+from tests.helpers import JSON_HEADERS, api_harness, search_result
 
 
 @pytest.mark.asyncio

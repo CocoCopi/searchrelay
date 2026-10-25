@@ -32,12 +32,12 @@ from app.models import (
 from app.observability import configure_logging, setup_tracing, span
 from app.pipeline import SearchPipeline
 from app.providers.factory import build_search_provider
+from app.ranking import Ranker
 from app.rate_limit import (
     RateLimiterService,
     RedisSlidingWindowRateLimiter,
     SlidingWindowRateLimiter,
 )
-from app.ranking import Ranker
 from app.render import JavaScriptRenderer
 from app.rerank import CrossEncoderReranker, CrossEncoderUnavailable
 from app.security import SecurityPolicy, URLValidationError, validate_url

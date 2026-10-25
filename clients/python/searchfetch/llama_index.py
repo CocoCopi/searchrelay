@@ -10,6 +10,7 @@ document text is untrusted third-party content.
 
 from __future__ import annotations
 
+import importlib
 from typing import Any, Iterable, List
 
 from .client import APIError, SearchFetchClient
@@ -19,20 +20,27 @@ _IMPORT_ERROR_MESSAGE = (
     "Install it with: pip install 'searchfetch-python[llamaindex]'"
 )
 
-try:  # pragma: no cover - exercised through the import-error branch in tests
-    from llama_index.core.readers.base import BaseReader
-    from llama_index.core.schema import Document
+class _MissingBaseReader:
+    """Fallback base used only when the optional dependency is absent."""
 
+
+_BaseReader: Any
+_Document: Any
+try:  # pragma: no cover - exercised through the import-error branch in tests
+    _base_module = importlib.import_module("llama_index.core.readers.base")
+    _schema_module = importlib.import_module("llama_index.core.schema")
+    _BaseReader = _base_module.BaseReader
+    _Document = _schema_module.Document
     _IMPORT_ERROR: ImportError | None = None
 except ImportError as exc:  # pragma: no cover - depends on the environment
-    BaseReader = object  # type: ignore[assignment,misc]
-    Document = None  # type: ignore[assignment]
+    _BaseReader = _MissingBaseReader
+    _Document = None
     _IMPORT_ERROR = exc
 
 
 if _IMPORT_ERROR is None:
 
-    class SearchRelayReader(BaseReader):  # type: ignore[misc, valid-type]
+    class SearchRelayReader(_BaseReader):  # type: ignore[misc, valid-type]
         """Read web pages through the SearchRelay fetch API."""
 
         def __init__(
@@ -60,7 +68,7 @@ if _IMPORT_ERROR is None:
                     if self._skip_errors:
                         continue
                     raise
-                yield Document(
+                yield _Document(
                     text=page.content,
                     metadata={
                         "title": page.title,

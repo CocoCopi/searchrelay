@@ -14,7 +14,6 @@ from app.providers.base import (
     SearchProvider,
 )
 
-
 SearchBackend = SearchProvider
 
 

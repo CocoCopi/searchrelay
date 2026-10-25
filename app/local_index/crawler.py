@@ -43,7 +43,6 @@ from app.security import (
     validate_url,
 )
 
-
 DEFAULT_USER_AGENT = "SearchRelayBot/1.0"
 
 
@@ -174,7 +173,10 @@ class Crawler:
         soup = BeautifulSoup(html, "html.parser")
         links: list[str] = []
         for anchor in soup.find_all("a", href=True):
-            candidate = urljoin(base_url, anchor["href"].strip())
+            href = anchor.get("href")
+            if not isinstance(href, str):
+                continue
+            candidate = urljoin(base_url, href.strip())
             parsed = urlsplit(candidate)
             if parsed.scheme not in {"http", "https"}:
                 continue

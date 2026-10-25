@@ -8,7 +8,6 @@ from typing import Any
 
 from app.config import Settings
 
-
 KNOWN_PROVIDERS = {"searxng", "brave", "serper", "tavily", "exa", "local"}
 DEFAULT_API_KEY_ENV = {
     "brave": "BRAVE_SEARCH_API_KEY",
@@ -36,9 +35,17 @@ class ProviderRuntimeConfig:
     max_results: int = 20
 
 
-def load_provider_configs(settings: Settings) -> list[ProviderRuntimeConfig]:
+def load_provider_configs(
+    settings: Settings,
+    *,
+    provider_names: list[str] | None = None,
+) -> list[ProviderRuntimeConfig]:
     payload = _load_config_file(settings.provider_config_file)
-    priorities = _priorities(payload, settings.provider_priorities)
+    priorities = (
+        [name.strip().casefold() for name in provider_names if name.strip()]
+        if provider_names is not None
+        else _priorities(payload, settings.provider_priorities)
+    )
     entries = payload.get("providers", {})
     if not isinstance(entries, dict):
         raise RuntimeError("SearchRelay provider configuration error: 'providers' must be an object")

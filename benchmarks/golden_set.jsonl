@@ -1,0 +1,100 @@
+{"id": "factual-001", "category": "factual", "query": "What is the capital city of Australia?", "relevance": {"australia.gov.au": 3, "naa.gov.au": 2, "wikipedia.org": 1}}
+{"id": "factual-002", "category": "factual", "query": "How many bones are in the adult human body?", "relevance": {"nih.gov": 3, "mayoclinic.org": 2, "wikipedia.org": 1}}
+{"id": "factual-003", "category": "factual", "query": "What is the boiling point of water at sea level in Celsius?", "relevance": {"nist.gov": 3, "noaa.gov": 2, "wikipedia.org": 1}}
+{"id": "factual-004", "category": "factual", "query": "Who wrote the play Hamlet?", "relevance": {"folger.edu": 3, "shakespeare.org.uk": 2, "britannica.com": 1}}
+{"id": "factual-005", "category": "factual", "query": "What is the largest planet in the Solar System?", "relevance": {"nasa.gov": 3, "esa.int": 2, "wikipedia.org": 1}}
+{"id": "factual-006", "category": "factual", "query": "What is the chemical symbol for potassium?", "relevance": {"rsc.org": 3, "periodic-table.io": 1, "wikipedia.org": 1}}
+{"id": "factual-007", "category": "factual", "query": "How many time zones does Russia have?", "relevance": {"gov.ru": 2, "britannica.com": 2, "wikipedia.org": 1}}
+{"id": "factual-008", "category": "factual", "query": "What is the tallest mountain above sea level?", "relevance": {"nepal.gov": 2, "noaa.gov": 1, "wikipedia.org": 1}}
+{"id": "factual-009", "category": "factual", "query": "What does the acronym HTTP stand for?", "relevance": {"ietf.org": 3, "w3.org": 2, "wikipedia.org": 1}}
+{"id": "factual-010", "category": "factual", "query": "What is the speed of light in a vacuum?", "relevance": {"nist.gov": 3, "esa.int": 1, "wikipedia.org": 1}}
+{"id": "factual-011", "category": "factual", "query": "Who developed the theory of general relativity?", "relevance": {"einstein-website.de": 3, "aps.org": 2, "wikipedia.org": 1}}
+{"id": "factual-012", "category": "factual", "query": "What is the average depth of the Pacific Ocean?", "relevance": {"noaa.gov": 3, "whoi.edu": 2, "wikipedia.org": 1}}
+{"id": "factual-013", "category": "factual", "query": "What year did the Berlin Wall fall?", "relevance": {"bundestag.de": 3, "history.com": 1, "wikipedia.org": 1}}
+{"id": "factual-014", "category": "factual", "query": "What is the smallest country in the world by area?", "relevance": {"gov.mt": 2, "un.org": 1, "wikipedia.org": 1}}
+{"id": "factual-015", "category": "factual", "query": "What is the currency of Japan?", "relevance": {"boj.or.jp": 3, "imf.org": 2, "wikipedia.org": 1}}
+{"id": "factual-016", "category": "factual", "query": "How does a lithium-ion battery work?", "relevance": {"energy.gov": 3, "batteryuniversity.com": 2, "wikipedia.org": 1}}
+{"id": "factual-017", "category": "factual", "query": "What is the population of the European Union?", "relevance": {"ec.europa.eu": 3, "eurostat.ec.europa.eu": 3, "wikipedia.org": 1}}
+{"id": "factual-018", "category": "factual", "query": "What causes the seasons on Earth?", "relevance": {"nasa.gov": 3, "noaa.gov": 2, "wikipedia.org": 1}}
+{"id": "factual-019", "category": "factual", "query": "What is the longest river in South America?", "relevance": {"amazon.gov.br": 2, "britannica.com": 2, "wikipedia.org": 1}}
+{"id": "factual-020", "category": "factual", "query": "What is the legal drinking age in Iceland?", "relevance": {"government.is": 3, "europa.eu": 1, "wikipedia.org": 1}}
+{"id": "factual-021", "category": "factual", "query": "What is the International System of Units based on?", "relevance": {"bipm.org": 3, "nist.gov": 2, "wikipedia.org": 1}}
+{"id": "factual-022", "category": "factual", "query": "Who painted the Mona Lisa?", "relevance": {"musee-ducotedroit.fr": 3, "louvre.fr": 3, "wikipedia.org": 1}}
+{"id": "factual-023", "category": "factual", "query": "What is the primary language spoken in Brazil?", "relevance": {"gov.br": 3, "ibge.gov.br": 3, "wikipedia.org": 1}}
+{"id": "factual-024", "category": "factual", "query": "How long does it take light from the Sun to reach Earth?", "relevance": {"nasa.gov": 3, "esa.int": 2, "wikipedia.org": 1}}
+{"id": "factual-025", "category": "factual", "query": "What is the difference between weather and climate?", "relevance": {"noaa.gov": 3, "wmo.int": 3, "wikipedia.org": 1}}
+{"id": "news-001", "category": "news", "query": "latest European Central Bank interest rate decision", "relevance": {"ecb.europa.eu": 3, "reuters.com": 2, "ft.com": 2}}
+{"id": "news-002", "category": "news", "query": "United Nations General Assembly summit outcome this year", "relevance": {"un.org": 3, "reuters.com": 2, "apnews.com": 2}}
+{"id": "news-003", "category": "news", "query": "NASA Artemis mission launch schedule update", "relevance": {"nasa.gov": 3, "spacenews.com": 2, "reuters.com": 1}}
+{"id": "news-004", "category": "news", "query": "OpenAI model release announcement", "relevance": {"openai.com": 3, "reuters.com": 2, "techcrunch.com": 2}}
+{"id": "news-005", "category": "news", "query": "European Parliament election results", "relevance": {"europarl.europa.eu": 3, "reuters.com": 2, "politico.eu": 2}}
+{"id": "news-006", "category": "news", "query": "World Health Organization pandemic preparedness report", "relevance": {"who.int": 3, "reuters.com": 2, "bbc.com": 1}}
+{"id": "news-007", "category": "news", "query": "Federal Reserve inflation report latest release", "relevance": {"federalreserve.gov": 3, "reuters.com": 2, "wsj.com": 2}}
+{"id": "news-008", "category": "news", "query": "Japan prime minister cabinet approval rating", "relevance": {"kantei.go.jp": 3, "nhk.or.jp": 2, "reuters.com": 2}}
+{"id": "news-009", "category": "news", "query": "China manufacturing PMI data release", "relevance": {"stats.gov.cn": 3, "reuters.com": 2, "scmp.com": 2}}
+{"id": "news-010", "category": "news", "query": "Brazil presidential election result", "relevance": {"tse.jus.br": 3, "reuters.com": 2, "bbc.com": 1}}
+{"id": "news-011", "category": "news", "query": "Tesla quarterly vehicle deliveries announcement", "relevance": {"tesla.com": 3, "reuters.com": 2, "electrek.co": 1}}
+{"id": "news-012", "category": "news", "query": "COP climate conference negotiations summary", "relevance": {"unfccc.int": 3, "reuters.com": 2, "carbonbrief.org": 2}}
+{"id": "news-013", "category": "news", "query": "UK Bank of England monetary policy statement", "relevance": {"bankofengland.co.uk": 3, "reuters.com": 2, "bbc.com": 1}}
+{"id": "news-014", "category": "news", "query": "Apple quarterly earnings report announcement", "relevance": {"apple.com": 3, "reuters.com": 2, "cnbc.com": 2}}
+{"id": "news-015", "category": "news", "query": "India monsoon rainfall seasonal outlook", "relevance": {"imd.gov.in": 3, "reuters.com": 2, "bbc.com": 1}}
+{"id": "news-016", "category": "news", "query": "African Union summit communique", "relevance": {"au.int": 3, "reuters.com": 2, "africanews.com": 1}}
+{"id": "news-017", "category": "news", "query": "International Space Station crew rotation announcement", "relevance": {"nasa.gov": 3, "space.com": 2, "reuters.com": 1}}
+{"id": "news-018", "category": "news", "query": "EU digital services act enforcement fines", "relevance": {"ec.europa.eu": 3, "reuters.com": 2, "politico.eu": 2}}
+{"id": "news-019", "category": "news", "query": "Canada housing market housing starts data", "relevance": {"statcan.gc.ca": 3, "reuters.com": 2, "cbc.ca": 2}}
+{"id": "news-020", "category": "news", "query": "Australia employment unemployment rate announcement", "relevance": {"abs.gov.au": 3, "reuters.com": 2, "abc.net.au": 2}}
+{"id": "news-021", "category": "news", "query": "Samsung Electronics earnings guidance", "relevance": {"samsung.com": 3, "reuters.com": 2, "koreatimes.co.kr": 1}}
+{"id": "news-022", "category": "news", "query": "South Korea general election result", "relevance": {"nec.go.kr": 3, "reuters.com": 2, "koreaherald.com": 1}}
+{"id": "news-023", "category": "news", "query": "Mexico inflation rate monthly report", "relevance": {"inegi.org.mx": 3, "reuters.com": 2, "bloomberg.com": 1}}
+{"id": "news-024", "category": "news", "query": "World Health Organization malaria report update", "relevance": {"who.int": 3, "reuters.com": 1, "nature.com": 2}}
+{"id": "news-025", "category": "news", "query": "Tesla and Ford US EV sales tax credit eligibility", "relevance": {"irs.gov": 3, "reuters.com": 2, "electrek.co": 2}}
+{"id": "code-001", "category": "code", "query": "python asyncio gather documentation", "relevance": {"docs.python.org": 3, "python.org": 2, "stackoverflow.com": 2}}
+{"id": "code-002", "category": "code", "query": "fastapi dependency injection guide", "relevance": {"fastapi.tiangolo.com": 3, "stackoverflow.com": 1}}
+{"id": "code-003", "category": "code", "query": "rust ownership and borrowing tutorial", "relevance": {"doc.rust-lang.org": 3, "rust-lang.org": 2, "stackoverflow.com": 1}}
+{"id": "code-004", "category": "code", "query": "golang context package documentation", "relevance": {"pkg.go.dev": 3, "go.dev": 2, "stackoverflow.com": 1}}
+{"id": "code-005", "category": "code", "query": "kubernetes pod security standards documentation", "relevance": {"kubernetes.io": 3, "github.com": 1}}
+{"id": "code-006", "category": "code", "query": "django rest framework serializers guide", "relevance": {"django-rest-framework.org": 3, "django-doc.herokuapp.com": 2}}
+{"id": "code-007", "category": "code", "query": "react hooks useEffect documentation", "relevance": {"react.dev": 3, "stackoverflow.com": 1}}
+{"id": "code-008", "category": "code", "query": "postgresql explain analyze query plan documentation", "relevance": {"postgresql.org": 3, "stackoverflow.com": 1}}
+{"id": "code-009", "category": "code", "query": "docker compose healthcheck configuration reference", "relevance": {"docs.docker.com": 3, "github.com": 1}}
+{"id": "code-010", "category": "code", "query": "typescript discriminated union types handbook", "relevance": {"typescriptlang.org": 3, "stackoverflow.com": 1}}
+{"id": "code-011", "category": "code", "query": "numpy broadcasting rules documentation", "relevance": {"numpy.org": 3, "stackoverflow.com": 1}}
+{"id": "code-012", "category": "code", "query": "git rebase interactive workflow tutorial", "relevance": {"git-scm.com": 3, "stackoverflow.com": 1}}
+{"id": "code-013", "category": "code", "query": "terraform provider version pinning best practice", "relevance": {"developer.hashicorp.com": 3, "github.com": 1}}
+{"id": "code-014", "category": "code", "query": "pytest fixtures scope documentation", "relevance": {"docs.pytest.org": 3, "stackoverflow.com": 1}}
+{"id": "code-015", "category": "code", "query": "c++ move semantics beginner explanation", "relevance": {"isocpp.org": 3, "cppreference.com": 3, "stackoverflow.com": 1}}
+{"id": "code-016", "category": "code", "query": "graphql pagination relay cursor specification", "relevance": {"graphql.org": 3, "github.com": 1}}
+{"id": "code-017", "category": "code", "query": "redis streams consumer group documentation", "relevance": {"redis.io": 3, "github.com": 1}}
+{"id": "code-018", "category": "code", "query": "nginx reverse proxy configuration examples", "relevance": {"nginx.org": 3, "digitalocean.com": 2}}
+{"id": "code-019", "category": "code", "query": "apache kafka exactly once semantics documentation", "relevance": {"kafka.apache.org": 3, "github.com": 1}}
+{"id": "code-020", "category": "code", "query": "terraform aws provider vpc module example", "relevance": {"registry.terraform.io": 3, "github.com": 2}}
+{"id": "code-021", "category": "code", "query": "elasticsearch mapping types migration guide", "relevance": {"elastic.co": 3, "github.com": 1}}
+{"id": "code-022", "category": "code", "query": "linux systemd service hardening unit example", "relevance": {"freedesktop.org": 3, "man7.org": 2}}
+{"id": "code-023", "category": "code", "query": "apache spark dataframe api python documentation", "relevance": {"spark.apache.org": 3, "github.com": 1}}
+{"id": "code-024", "category": "code", "query": "flutter widget testing guide", "relevance": {"docs.flutter.dev": 3, "github.com": 1}}
+{"id": "code-025", "category": "code", "query": "huggingface transformers pipeline inference example", "relevance": {"huggingface.co": 3, "github.com": 2}}
+{"id": "multilingual-001", "category": "multilingual", "query": "capital de España y su población", "relevance": {"lainter.gob.es": 3, "wikipedia.org": 2}}
+{"id": "multilingual-002", "category": "multilingual", "query": "哈尔滨冰雪大世界 开放时间", "relevance": {"harbin.gov.cn": 3, "gov.cn": 2, "baike.baidu.com": 1}}
+{"id": "multilingual-003", "category": "multilingual", "query": "日本のGDP 最新 統計", "relevance": {"esri.cao.go.jp": 3, "stat.go.jp": 3, "nikkei.com": 1}}
+{"id": "multilingual-004", "category": "multilingual", "query": "가장 큰 항구吞吐量 국가", "relevance": {"mof.go.kr": 3, "kostat.go.kr": 2, "wikipedia.org": 1}}
+{"id": "multilingual-005", "category": "multilingual", "query": "Oberfläche der Erde in Quadratkilometern", "relevance": {"destatis.de": 3, "bundesbank.de": 1, "wikipedia.org": 2}}
+{"id": "multilingual-006", "category": "multilingual", "query": "применение машинного обучения в медицине", "relevance": {"sk.ru": 3, "arxiv.org": 2, "wikipedia.org": 1}}
+{"id": "multilingual-007", "category": "multilingual", "query": "economia brasileira inflação mensal oficial", "relevance": {"ibge.gov.br": 3, "bcb.gov.br": 3, "wikipedia.org": 1}}
+{"id": "multilingual-008", "category": "multilingual", "query": "temperature moyenne à Paris en décembre", "relevance": {"meteofrance.fr": 3, "insee.fr": 2, "wikipedia.org": 1}}
+{"id": "multilingual-009", "category": "multilingual", "query": "人工智能在农业中的应用 最新研究", "relevance": {"caas.cn": 3, "arxiv.org": 2, "cas.cn": 2}}
+{"id": "multilingual-010", "category": "multilingual", "query": "상승률_top 테마주 2026 코스피", "relevance": {"krx.co.kr": 3, "fnguide.com": 2, "hankyung.com": 1}}
+{"id": "multilingual-011", "category": "multilingual", "query": "भारत में डिजिटल भुगतान वृद्धि", "relevance": {"rbi.org.in": 3, "niti.gov.in": 2, "economictimes.indiatimes.com": 1}}
+{"id": "multilingual-012", "category": "multilingual", "query": "气候变化的最新科学报告 2025", "relevance": {"ipcc.ch": 3, "wmo.int": 3, "nature.com": 2}}
+{"id": "multilingual-013", "category": "multilingual", "query": "人工智能 .compute 予算 叫什么", "relevance": {"go.jp": 2, "meti.go.jp": 3, "wikipedia.org": 1}}
+{"id": "multilingual-014", "category": "multilingual", "query": "قيمة الذهب اليوم في السوق العالمي", "relevance": {"gold.org": 3, "reuters.com": 2, "arabnews.com": 1}}
+{"id": "multilingual-015", "category": "multilingual", "query": "האוצר הלאומי ריבית מדיניות 2026", "relevance": {"boi.org.il": 3, "reuters.com": 2, "wikipedia.org": 1}}
+{"id": "multilingual-016", "category": "multilingual", "query": "ยาและวัคซีนเพื่อสุขภาพของประชาชน", "relevance": {"hss.moph.go.th": 3, "who.int": 2, "wikipedia.org": 1}}
+{"id": "multilingual-017", "category": "multilingual", "query": "育儿津贴 2026 政策 调整", "relevance": {"gov.cn": 3, "stats.gov.cn": 2, "xinhuanet.com": 1}}
+{"id": "multilingual-018", "category": "multilingual", "query": "transport.public transport ridership statistics Europe", "relevance": {"ec.europa.eu": 3, "eurostat.ec.europa.eu": 3, "itf-oecd.org": 2}}
+{"id": "multilingual-019", "category": "multilingual", "query": "한국어 자연어 처리 라이브러리 비교", "relevance": {"github.com": 2, "korea.kr": 1, "wikipedia.org": 1}}
+{"id": "multilingual-020", "category": "multilingual", "query": "木材价格指数 中国 进口", "relevance": {"customs.gov.cn": 3, "stats.gov.cn": 2, "reuters.com": 1}}
+{"id": "multilingual-021", "category": "multilingual", "query": "Crise énergétique implications pour les ménages", "relevance": {"economie.gouv.fr": 3, "ec.europa.eu": 2, "insee.fr": 1}}
+{"id": "multilingual-022", "category": "multilingual", "query": "künstliche Intelligenz in der deutschen Industrie", "relevance": {"destatis.de": 3, "bmwk.de": 2, "fraunhofer.de": 2}}
+{"id": "multilingual-023", "category": "multilingual", "query": "японская кухня региональные блюда харами", "relevance": {"maff.go.jp": 3, "japan.travel": 2, "wikipedia.org": 1}}
+{"id": "multilingual-024", "category": "multilingual", "query": "المملكة العربية السعودية رؤية 2030 تقدم 경제ي", "relevance": {"vision2030.gov.sa": 3, "stats.gov.sa": 3, "arabnews.com": 1}}
+{"id": "multilingual-025", "category": "multilingual", "query": "พืชพลศาสตร์ เกษตรกรรมยั่งยืน สถิติ", "relevance": {"nsmi.go.th": 2, "oae.go.th": 3, "fao.org": 2}}

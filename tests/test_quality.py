@@ -13,6 +13,7 @@ from app.rerank import CrossEncoderReranker, normalize_logit
 from app.security import SecurityPolicy
 from tests.helpers import JSON_HEADERS, api_harness
 
+
 def _minimal_pdf(text: str = "Hello PDF world") -> bytes:
     """Build a small, valid single-page PDF with one text run."""
 

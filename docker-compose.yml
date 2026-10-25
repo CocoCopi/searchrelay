@@ -1,0 +1,48 @@
+services:
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8080/
+    volumes:
+      - ./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - searxng-cache:/var/cache/searxng
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/', timeout=5)",
+        ]
+      interval: 20s
+      timeout: 8s
+      start_period: 30s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      searxng:
+        condition: service_healthy
+    environment:
+      SF_UPSTREAM_URL: http://searxng:8080
+      SF_API_KEYS_JSON: '${SF_API_KEYS_JSON:-{"sk-local-dev":"local-demo"}}'
+      SF_INITIAL_BALANCES_JSON: '${SF_INITIAL_BALANCES_JSON:-{"local-demo":100000000}}'
+      SF_DATABASE_PATH: /data/searchfetch.db
+      SF_SEARCH_QPS: ${SF_SEARCH_QPS:-100}
+      SF_FETCH_QPS: ${SF_FETCH_QPS:-25}
+      SF_FETCH_DOMAIN_QPS: ${SF_FETCH_DOMAIN_QPS:-5}
+    volumes:
+      - searchfetch-data:/data
+    ports:
+      - "8000:8000"
+
+volumes:
+  searchfetch-data:
+  searxng-cache:

@@ -35,6 +35,17 @@ class Settings(BaseSettings):
     provider_health_cache_seconds: float = Field(default=15.0, ge=0, le=300)
     provider_rrf_k: int = Field(default=60, ge=1, le=1000)
 
+    authority_config_file: Path | None = Path("config/authority.yaml")
+
+    render_js: bool = False
+    render_js_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
+    render_js_min_content_chars: int = Field(default=200, ge=0, le=100_000)
+
+    rerank_cross_encoder_enabled: bool = False
+    rerank_cross_encoder_model: Path | None = None
+    rerank_cross_encoder_weight: float = Field(default=0.35, ge=0, le=1)
+    rerank_cross_encoder_max_length: int = Field(default=512, ge=32, le=2048)
+
     api_keys_json: Annotated[dict[str, str], NoDecode] = Field(default_factory=dict)
     initial_balances_json: Annotated[dict[str, int], NoDecode] = Field(default_factory=dict)
     keys_file: Path | None = None
@@ -81,6 +92,19 @@ class Settings(BaseSettings):
     @classmethod
     def validate_cache_database_path(cls, value: Path | None) -> Path | None:
         return value.expanduser() if value is not None else None
+
+    @field_validator(
+        "authority_config_file",
+        "rerank_cross_encoder_model",
+        mode="before",
+    )
+    @classmethod
+    def validate_optional_paths(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, str) and not value.strip():
+            return None
+        return Path(value).expanduser() if isinstance(value, (str, Path)) else value
 
     @field_validator("api_keys_json", "initial_balances_json", mode="before")
     @classmethod
@@ -145,6 +169,11 @@ class Settings(BaseSettings):
             )
         if not self.upstream_url:
             problems.append("SF_UPSTREAM_URL must be set")
+        if self.rerank_cross_encoder_enabled and not self.rerank_cross_encoder_model:
+            problems.append(
+                "SF_RERANK_CROSS_ENCODER_MODEL must point at a model directory when "
+                "SF_RERANK_CROSS_ENCODER_ENABLED is true"
+            )
         if problems:
             raise RuntimeError("SearchRelay startup configuration error: " + "; ".join(problems))
 

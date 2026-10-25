@@ -11,8 +11,15 @@ from urllib.robotparser import RobotFileParser
 import httpx
 
 from app.cache import CacheEntry, SingleFlight, TwoTierCache
-from app.content import ExtractedPage, extract_page, sanitize_untrusted_text
+from app.content import (
+    ExtractedPage,
+    decode_bytes,
+    extract_page,
+    pdf_to_markdown,
+    sanitize_untrusted_text,
+)
 from app.errors import APIError
+from app.render import JavaScriptRenderer
 from app.security import (
     SecurityPolicy,
     URLValidationError,
@@ -29,6 +36,7 @@ SUPPORTED_CONTENT_TYPES = {
     "text/markdown",
     "application/xml",
     "text/xml",
+    "application/pdf",
 }
 _CHARSET_RE = re.compile(r"charset\s*=\s*[\"']?([A-Za-z0-9._-]+)", re.I)
 
@@ -53,6 +61,7 @@ class FetchService:
         robots_ttl_seconds: int = 3600,
         cache: TwoTierCache | None = None,
         coalescer: SingleFlight | None = None,
+        renderer: JavaScriptRenderer | None = None,
     ) -> None:
         self.client = client
         self.policy = policy
@@ -64,6 +73,7 @@ class FetchService:
         self.robots_ttl_seconds = robots_ttl_seconds
         self.cache = cache
         self.coalescer = coalescer or SingleFlight()
+        self.renderer = renderer
         self._robots_cache: dict[str, RobotsDecision] = {}
 
     async def fetch(self, raw_url: str) -> ExtractedPage:
@@ -122,19 +132,30 @@ class FetchService:
                 )
 
             charset_match = _CHARSET_RE.search(response.headers.get("content-type", ""))
-            charset = charset_match.group(1) if charset_match else "utf-8"
-            try:
-                text = body.decode(charset, errors="replace")
-            except LookupError:
-                text = body.decode("utf-8", errors="replace")
+            charset = charset_match.group(1) if charset_match else None
 
-            if content_type in {"text/html", "application/xhtml+xml"}:
+            if content_type == "application/pdf":
+                try:
+                    page = pdf_to_markdown(body)
+                except ValueError as exc:
+                    raise APIError(
+                        404,
+                        "The PDF could not be converted to Markdown",
+                        "no_usable_content",
+                    ) from exc
+            elif content_type in {"text/html", "application/xhtml+xml"}:
+                text = decode_bytes(body, charset)
                 page = extract_page(text)
-            elif content_type == "text/markdown":
-                page = ExtractedPage(title="", content=sanitize_untrusted_text(text))
-            elif content_type in {"application/xml", "text/xml"}:
-                page = ExtractedPage(title="", content=sanitize_untrusted_text(text))
+                if self.renderer is not None and len(page.content.strip()) < (
+                    self.renderer.minimum_content_chars
+                ):
+                    rendered = await self._render(target.original)
+                    if rendered is not None:
+                        rendered_page = extract_page(rendered)
+                        if len(rendered_page.content.strip()) > len(page.content.strip()):
+                            page = rendered_page
             else:
+                text = decode_bytes(body, charset)
                 page = ExtractedPage(title="", content=sanitize_untrusted_text(text))
 
             if not page.content.strip():
@@ -157,6 +178,16 @@ class FetchService:
             raise APIError(504, "The downstream URL timed out", "downstream_timeout") from exc
         except httpx.RequestError as exc:
             raise APIError(404, "The URL could not be fetched", "no_usable_content") from exc
+
+    async def _render(self, url: str) -> str | None:
+        if self.renderer is None:
+            return None
+        try:
+            return await self.renderer.render(url)
+        except APIError as exc:
+            if exc.code == "renderer_unavailable":
+                raise
+            return None
 
     async def _check_page_target(self, target: ValidatedURL) -> None:
         self.policy.check_host(target.hostname)

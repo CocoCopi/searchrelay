@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 from dataclasses import dataclass
 from datetime import timezone
@@ -16,6 +17,10 @@ from app.models import SearchRequest, SearchResult
 from app.operators import ParsedQuery, date_is_in_range, parse_query
 from app.providers.base import SearchCandidate, SearchProvider
 from app.ranking import Ranker
+from app.rerank import CrossEncoderReranker
+
+
+logger = logging.getLogger("searchrelay.pipeline")
 
 
 @dataclass(frozen=True)
@@ -35,6 +40,7 @@ class SearchPipeline:
         cache: TwoTierCache | None = None,
         coalescer: SingleFlight | None = None,
         cache_namespace: str = "search",
+        cross_encoder: CrossEncoderReranker | None = None,
     ) -> None:
         self.backend = backend
         self.fetcher = fetcher
@@ -43,6 +49,7 @@ class SearchPipeline:
         self.cache = cache
         self.coalescer = coalescer or SingleFlight()
         self.cache_namespace = cache_namespace
+        self.cross_encoder = cross_encoder
 
     async def search(self, request: SearchRequest) -> SearchOutcome:
         key = self._cache_key(request)
@@ -95,7 +102,7 @@ class SearchPipeline:
             return candidate, page_content
 
         materialized = await asyncio.gather(*(materialize(item) for item in candidates))
-        results: list[SearchResult] = []
+        prepared: list[tuple[SearchCandidate, str, str, str, str, object]] = []
         for candidate, page_content in materialized:
             source = page_content or candidate.snippet
             title = candidate.title or _site_name(candidate.url)
@@ -110,9 +117,21 @@ class SearchPipeline:
                 query_terms=parsed.search_terms,
                 engine_score=candidate.engine_score,
             )
+            prepared.append((candidate, page_content, title, snippet, summary, signals))
+
+        query_text = request.ori_question or request.query
+        cross_scores = await self._cross_encoder_scores(
+            query_text,
+            [f"{title}\n{snippet}" for _, _, title, snippet, _, _ in prepared],
+        )
+
+        results: list[SearchResult] = []
+        for (candidate, page_content, title, snippet, summary, signals), cross_score in zip(
+            prepared, cross_scores
+        ):
             results.append(
                 SearchResult(
-                    rerank_score=self.ranker.rerank_score(signals),
+                    rerank_score=self.ranker.rerank_score(signals, cross_score),
                     title=sanitize_untrusted_text(title),
                     url=candidate.url,
                     snippet=snippet,
@@ -130,6 +149,30 @@ class SearchPipeline:
         )
         await self._cache_store(key, outcome)
         return outcome
+
+    async def _cross_encoder_scores(
+        self,
+        query: str,
+        documents: list[str],
+    ) -> list[float | None]:
+        """Score documents with the optional cross-encoder reranker.
+
+        The reranker is off by default. When it is enabled but scoring fails,
+        the heuristic score is used for every result instead of failing the
+        request.
+        """
+
+        if self.cross_encoder is None or not documents:
+            return [None] * len(documents)
+        try:
+            scores = await asyncio.to_thread(self.cross_encoder.score, query, documents)
+        except Exception:
+            logger.warning(
+                "Cross-encoder reranking failed; using the heuristic score",
+                exc_info=True,
+            )
+            return [None] * len(documents)
+        return [float(score) for score in scores]
 
     async def _cache_get(self, key: str):
         if self.cache is None:

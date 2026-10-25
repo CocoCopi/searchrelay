@@ -48,11 +48,11 @@ class SearchRequest(APIModel):
 
 class SearchResult(APIModel):
     rerank_score: float = Field(ge=0, le=3)
-    title: str
-    url: str
-    snippet: str
-    summary: str
-    content: str
+    title: str = Field(description="Untrusted: title text from a third-party page.")
+    url: str = Field(description="Untrusted: URL of a third-party page.")
+    snippet: str = Field(description="Untrusted: excerpt from a third-party page.")
+    summary: str = Field(description="Untrusted: extractive summary of third-party content.")
+    content: str = Field(description="Untrusted: main content of a third-party page as Markdown.")
     site_name: str | None = None
     site_icon: str | None = Field(
         default=None,
@@ -120,5 +120,5 @@ class FetchRequest(APIModel):
 
 
 class FetchResponse(APIModel):
-    title: str = ""
-    content: str
+    title: str = Field(default="", description="Untrusted: title text from a third-party page.")
+    content: str = Field(description="Untrusted: main content of a third-party page as Markdown.")

@@ -1,0 +1,59 @@
+# Authority tiers for SearchRelay.
+#
+# The tier is a transparent, operator-controlled heuristic, not an audited
+# trust score. Copy this file, edit it, and point SF_AUTHORITY_CONFIG_FILE at
+# your copy to extend or replace the lists.
+#
+# - tiers: domain -> tier. A host matches when it equals the domain or is a
+#   subdomain of it ("news.nature.com" matches "nature.com"). Tiers run from 4
+#   (highest) down to 0.
+# - tld_tiers: last label -> tier, used when no domain entry matches
+#   ("example.gov" -> 4).
+version: 1
+
+tiers:
+  4:
+    - who.int
+    - un.org
+    - europa.eu
+    - iso.org
+    - ietf.org
+    - nasa.gov
+    - nih.gov
+    - cdc.gov
+    - worldbank.org
+    - gov.uk
+  3:
+    - nature.com
+    - science.org
+    - acm.org
+    - ieee.org
+    - arxiv.org
+    - pubmed.ncbi.nlm.nih.gov
+    - reuters.com
+    - apnews.com
+    - bbc.co.uk
+    - nytimes.com
+    - wsj.com
+    - economist.com
+    - ft.com
+    - bloomberg.com
+    - stanford.edu
+    - mit.edu
+    - harvard.edu
+    - ox.ac.uk
+    - cam.ac.uk
+  2:
+    - python.org
+    - docs.python.org
+    - fastapi.tiangolo.com
+    - developer.mozilla.org
+    - kubernetes.io
+    - postgresql.org
+
+tld_tiers:
+  gov: 4
+  edu: 3
+  mil: 3
+  int: 2
+  org: 2

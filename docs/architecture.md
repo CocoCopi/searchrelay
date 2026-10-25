@@ -78,7 +78,9 @@ Date constraints accept `YYYY`, `YYYY-MM`, and `YYYY-MM-DD`. Bounds are inclusiv
 
 ## Ranking
 
-`rerank_score` is normalized to 0–3. The weighted signals are authority tier (35%), freshness (20%), page/result quality (25%), query relevance (15%), and click/engine prior (5%). The normalized weighted value is multiplied by 3, then an explicit spam penalty is subtracted. Scores of 1.5 or greater identify high-quality results under this heuristic. The authority tier ranges from -1 (unknown) through 4 (highly authoritative). The implementation uses transparent domain and page heuristics; it is not an audited trust score. See [`ranking.md`](ranking.md) for the exact formula and a worked example.
+`rerank_score` is normalized to 0–3. The weighted signals are authority tier (35%), freshness (20%), page/result quality (25%), query relevance (15%), and click/engine prior (5%). The normalized weighted value is multiplied by 3, then an explicit spam penalty is subtracted. Scores of 1.5 or greater identify high-quality results under this heuristic. The authority tier ranges from -1 (unknown) through 4 (highly authoritative). The tier list is operator-controlled YAML configuration; the implementation uses transparent domain and page heuristics; it is not an audited trust score. See [`ranking.md`](ranking.md) for the exact formula and a worked example.
+
+An optional local ONNX cross-encoder can blend into the score. It is off by default, no model is shipped, and the heuristic stays the fallback when the reranker is disabled or fails.
 
 The upstream engine score is used as a relevance/click prior. There is no click collection endpoint in this API contract.
 
@@ -93,6 +95,10 @@ A production deployment can replace `app/excerpt.py` with a model-backed summari
 3. constrain output to the source;
 4. cache by normalized URL/content hash;
 5. never let model output alter URLs, score, authority, or billing state.
+
+## Fetch and extraction quality
+
+The fetch service decodes the response with the declared charset, or detects it from the bytes when the server does not declare one. HTML is reduced to its main content with Trafilatura, and the resulting Markdown keeps headings, lists, tables, and fenced code blocks; code fences inherit a language hint when the source HTML declares one. PDFs are converted to Markdown page by page. JavaScript rendering is available as an optional, off-by-default extra: when it is enabled and the plain extraction returns very little content, the page is rendered in a headless browser, and every request the browser makes is re-checked against the public-network policy.
 
 ## Safe Fetch design
 

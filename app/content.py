@@ -3,10 +3,21 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
+from io import BytesIO
 
 import trafilatura
 from bs4 import BeautifulSoup, Comment
 from markdownify import markdownify as convert_to_markdown
+
+try:  # Optional but recommended: used when the response has no usable charset.
+    from charset_normalizer import from_bytes as _detect_charset
+except ImportError:  # pragma: no cover - exercised only without the extra
+    _detect_charset = None
+
+try:
+    from pypdf import PdfReader
+except ImportError:  # pragma: no cover - exercised only without the extra
+    PdfReader = None
 
 
 _INJECTION_PATTERNS = (
@@ -32,13 +43,16 @@ def extract_page(raw_html: str) -> ExtractedPage:
     Trafilatura performs boilerplate removal before the result is used for a
     snippet or summary. The conservative fallback only accepts explicit
     ``main``/``article`` roots so navigation, cookie notices, and link lists
-    cannot leak into extracted content.
+    cannot leak into extracted content. Tables and fenced code blocks are
+    preserved; code fences inherit a language hint when the source HTML
+    declares one.
     """
 
     soup = BeautifulSoup(raw_html, "html.parser")
     title = _extract_title(soup)
     _remove_unsafe_nodes(soup)
     _remove_page_chrome(soup)
+    code_languages = _code_languages(soup)
     markdown = trafilatura.extract(
         str(soup),
         output_format="markdown",
@@ -56,9 +70,69 @@ def extract_page(raw_html: str) -> ExtractedPage:
             else ""
         )
 
+    markdown = _apply_code_languages(markdown, code_languages)
     markdown = _normalize_markdown(markdown)
     markdown = sanitize_untrusted_text(markdown)
     return ExtractedPage(title=title, content=markdown)
+
+
+def decode_bytes(body: bytes, declared_charset: str | None = None) -> str:
+    """Decode a response body, detecting the charset when it is not declared.
+
+    The declared charset wins when it can decode the body. Otherwise the
+    charset is detected from the bytes themselves, and UTF-8 with replacement
+    characters is the final fallback.
+    """
+
+    if declared_charset:
+        try:
+            return body.decode(declared_charset)
+        except (LookupError, UnicodeDecodeError):
+            pass
+    if _detect_charset is not None and body:
+        try:
+            match = _detect_charset(body).best()
+        except Exception:  # pragma: no cover - defensive, detector is best effort
+            match = None
+        if match is not None:
+            try:
+                return str(match)
+            except (UnicodeDecodeError, LookupError):  # pragma: no cover - defensive
+                pass
+    return body.decode("utf-8", errors="replace")
+
+
+def pdf_to_markdown(data: bytes) -> ExtractedPage:
+    """Convert a PDF document to Markdown.
+
+    PDF text is extracted page by page and joined with a horizontal rule so
+    page boundaries stay visible. PDF is not a rich document format, so the
+    result is plain text rather than reconstructed headings and tables.
+    """
+
+    if PdfReader is None:  # pragma: no cover - exercised only without the extra
+        raise ValueError("PDF support requires the 'pypdf' package")
+    try:
+        reader = PdfReader(BytesIO(data))
+    except Exception as exc:
+        raise ValueError("The PDF could not be parsed") from exc
+    pages: list[str] = []
+    for page in reader.pages:
+        try:
+            text = page.extract_text() or ""
+        except Exception:  # pragma: no cover - malformed PDFs must not crash
+            text = ""
+        text = text.strip()
+        if text:
+            pages.append(text)
+    if not pages:
+        raise ValueError("The PDF contains no extractable text")
+    title = ""
+    metadata = getattr(reader, "metadata", None)
+    if metadata is not None:
+        title = str(metadata.get("/Title") or "").strip()
+    content = "\n\n---\n\n".join(pages)
+    return ExtractedPage(title=sanitize_untrusted_text(title)[:500], content=content)
 
 
 def html_to_text(raw_html: str) -> str:
@@ -212,3 +286,55 @@ def _normalize_markdown(value: str) -> str:
     value = re.sub(r"[ \t]+\n", "\n", value)
     value = re.sub(r"\n{3,}", "\n\n", value)
     return value.strip()
+
+
+_LANGUAGE_CLASS_RE = re.compile(r"(?:language|lang|highlight)-([A-Za-z0-9_+#.-]+)")
+
+
+def _code_languages(soup: BeautifulSoup) -> list[str]:
+    """Collect code-block languages in document order."""
+
+    languages: list[str] = []
+    for block in soup.find_all("pre"):
+        code = block.find("code")
+        candidates = [block, code] if code is not None else [block]
+        language = ""
+        for candidate in candidates:
+            classes = candidate.get("class") if candidate is not None else None
+            if not classes:
+                continue
+            if isinstance(classes, str):
+                classes = [classes]
+            for value in classes:
+                match = _LANGUAGE_CLASS_RE.search(str(value))
+                if match:
+                    language = match.group(1).lower()
+                    break
+            if language:
+                break
+        languages.append(language)
+    return languages
+
+
+def _apply_code_languages(markdown: str, languages: list[str]) -> str:
+    """Add language hints to fenced code blocks that lack them."""
+
+    if not markdown or not languages:
+        return markdown
+    hints = list(languages)
+    index = 0
+    in_code_block = False
+    output: list[str] = []
+    for line in markdown.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            if not in_code_block:
+                in_code_block = True
+                language = hints[index] if index < len(hints) else ""
+                index += 1
+                if language and stripped == "```":
+                    line = f"```{language}"
+            else:
+                in_code_block = False
+        output.append(line)
+    return "\n".join(output)

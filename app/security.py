@@ -4,7 +4,7 @@ import asyncio
 import ipaddress
 import socket
 from dataclasses import dataclass
-from urllib.parse import SplitResult, urlsplit
+from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from app.errors import APIError
 
@@ -172,6 +172,28 @@ def is_public_ip(address: ipaddress._BaseAddress) -> bool:
     if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
         address = address.ipv4_mapped
     return bool(address.is_global and not address.is_multicast and not address.is_unspecified)
+
+
+def pin_hostname(target: ValidatedURL, address: str) -> str:
+    """Return ``target`` rewritten to connect to the validated address."""
+
+    parsed = urlsplit(target.original)
+    literal = f"[{address}]" if ipaddress.ip_address(address).version == 6 else address
+    netloc = literal
+    if target.explicit_port is not None:
+        netloc = f"{netloc}:{target.explicit_port}"
+    return urlunsplit((target.scheme, netloc, parsed.path or "/", parsed.query, ""))
+
+
+def host_header(target: ValidatedURL) -> str:
+    """Return the ``Host`` header value for ``target``."""
+
+    hostname = target.hostname
+    if ":" in hostname:
+        hostname = f"[{hostname}]"
+    if target.explicit_port is not None:
+        return f"{hostname}:{target.explicit_port}"
+    return hostname
 
 
 def _is_ip_literal(value: str) -> bool:

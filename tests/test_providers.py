@@ -394,9 +394,19 @@ async def test_provider_request_budget_prevents_extra_upstream_calls() -> None:
     assert provider.calls == 1
 
 
+def test_provider_priorities_are_read_from_the_environment(monkeypatch) -> None:
+    monkeypatch.setenv("SF_PROVIDER_PRIORITIES", "brave,serper")
+    monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "brave-secret")
+    monkeypatch.setenv("SERPER_API_KEY", "serper-secret")
+
+    configs = load_provider_configs(Settings())
+
+    assert [config.name for config in configs] == ["brave", "serper"]
+
+
 def test_provider_configuration_requires_api_key(monkeypatch) -> None:
     monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
-    settings = Settings(provider_priorities_csv="brave")
+    settings = Settings(provider_priorities="brave")
 
     with pytest.raises(RuntimeError, match="BRAVE_SEARCH_API_KEY"):
         load_provider_configs(settings)
@@ -463,7 +473,7 @@ async def test_search_header_lists_only_successful_providers(tmp_path, monkeypat
     async with api_harness(
         handler,
         tmp_path,
-        provider_priorities_csv="searxng,brave",
+        provider_priorities="searxng,brave",
         provider_retry_attempts=1,
         provider_retry_base_delay_seconds=0.0,
     ) as (client, _):

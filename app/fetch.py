@@ -24,6 +24,8 @@ from app.security import (
     SecurityPolicy,
     URLValidationError,
     ValidatedURL,
+    host_header,
+    pin_hostname,
     resolve_public_addresses,
     validate_url,
 )
@@ -280,11 +282,11 @@ class FetchService:
         self.policy.check_host(target.hostname)
         addresses = await resolve_public_addresses(target.hostname)
         selected = addresses[0]
-        pinned_url = _pin_hostname(target, selected)
+        pinned_url = pin_hostname(target, selected)
         headers = {
             "Accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.1",
             "User-Agent": self.user_agent,
-            "Host": _host_header(target),
+            "Host": host_header(target),
         }
         if extra_headers:
             headers.update(extra_headers)
@@ -364,18 +366,8 @@ def _page_from_entry(entry: CacheEntry) -> ExtractedPage:
 
 
 def _pin_hostname(target: ValidatedURL, address: str) -> str:
-    parsed = urlsplit(target.original)
-    literal = f"[{address}]" if ipaddress.ip_address(address).version == 6 else address
-    netloc = literal
-    if target.explicit_port is not None:
-        netloc = f"{netloc}:{target.explicit_port}"
-    return urlunsplit((target.scheme, netloc, parsed.path or "/", parsed.query, ""))
+    return pin_hostname(target, address)
 
 
 def _host_header(target: ValidatedURL) -> str:
-    hostname = target.hostname
-    if ":" in hostname:
-        hostname = f"[{hostname}]"
-    if target.explicit_port is not None:
-        return f"{hostname}:{target.explicit_port}"
-    return hostname
+    return host_header(target)

@@ -24,6 +24,7 @@ The API, ranking, summarization, security, billing, and client layers are indepe
 - Parallel provider federation across Brave Search API, Serper, Tavily, Exa, and user-run SearXNG, with reciprocal rank fusion, canonical URL deduplication, retries, circuit breakers, budgets, and partial-failure failover.
 - Two-tier cache (in-memory LRU plus SQLite) with TTLs by content type, `ETag`/`Last-Modified` revalidation, and request coalescing so identical concurrent queries share one upstream call.
 - `POST /v1/tools/search/batch` runs up to ten queries and bills one unit per successful query.
+- Optional private local index: a polite, robots-aware crawler indexes your own sites into SQLite FTS5 so you can search your own documentation (see [`docs/local-index.md`](docs/local-index.md)).
 - Search operators: `site:`, `-site:`, `-term`, `-"phrase"`, `"exact phrase"`, `lang:zh,en`, `after:YYYY[-MM[-DD]]`, and `before:YYYY[-MM[-DD]]`; operators are enforced again locally after retrieval.
 - Query-aware snippets/summaries, authority tiers, freshness, quality, relevance, spam penalties, and a normalized `rerank_score` from 0 to 3 (see [`docs/ranking.md`](docs/ranking.md)).
 - Main-content HTML-to-Markdown conversion with Trafilatura, page-chrome removal, active/hidden content removal, and prompt-injection instruction filtering.
@@ -294,6 +295,7 @@ All settings use the `SF_` prefix.
 | `SF_RESPECT_ROBOTS` | `true` | Honor robots.txt |
 | `SF_USER_AGENT` | `DeepSeekBot/1.0` | Fetch user agent |
 | `SF_AUTHORITY_CONFIG_FILE` | `config/authority.yaml` | Authority tier configuration |
+| `SF_LOCAL_INDEX_PATH` | `data/local-index.db` | SQLite path of the optional private local index |
 | `SF_RENDER_JS` | `false` | Enable optional Playwright rendering (experimental) |
 | `SF_RENDER_JS_TIMEOUT_SECONDS` | `15` | JavaScript render timeout |
 | `SF_RERANK_CROSS_ENCODER_ENABLED` | `false` | Enable the optional ONNX cross-encoder (experimental) |
@@ -380,6 +382,8 @@ clients/go/             Go SDK
 examples/agent.py       Search → fetch → answer agent
 openapi.json            OpenAPI 3.1 specification
 deploy/searxng/         SearXNG container configuration
+config/authority.yaml   Authority tier configuration
 tests/                  Contract, security, billing, and limit tests
 docs/architecture.md    Engine and scaling design
+docs/local-index.md     Optional private index for your own sites
 ```

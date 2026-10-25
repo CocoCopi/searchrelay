@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     engine_name: str = "searxng"
 
     provider_config_file: Path | None = None
-    provider_priorities_csv: str = "searxng"
+    provider_priorities: str = "searxng"
     provider_retry_attempts: int = Field(default=2, ge=1, le=5)
     provider_retry_base_delay_seconds: float = Field(default=0.15, ge=0, le=10)
     provider_circuit_failure_threshold: int = Field(default=5, ge=1, le=100)
@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     provider_rrf_k: int = Field(default=60, ge=1, le=1000)
 
     authority_config_file: Path | None = Path("config/authority.yaml")
+    local_index_path: Path = Path("data/local-index.db")
 
     render_js: bool = False
     render_js_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
@@ -92,6 +93,11 @@ class Settings(BaseSettings):
     @classmethod
     def validate_cache_database_path(cls, value: Path | None) -> Path | None:
         return value.expanduser() if value is not None else None
+
+    @field_validator("local_index_path")
+    @classmethod
+    def validate_local_index_path(cls, value: Path) -> Path:
+        return value.expanduser()
 
     @field_validator(
         "authority_config_file",

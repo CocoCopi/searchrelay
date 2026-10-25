@@ -11,7 +11,7 @@ SearchRelay is an orchestration and retrieval layer. It does **not** own, crawl,
 | Serper | Official Serper JSON API | `SERPER_API_KEY` | Uses Serper's API rather than scraping Google HTML. Serper and underlying engine terms still apply. |
 | Tavily | Official JSON API | `TAVILY_API_KEY` | Uses Tavily's official search endpoint. |
 | Exa | Official JSON API | `EXA_API_KEY` | Uses Exa's official search endpoint. |
-| Local index | Optional private corpus | Phase 5 configuration | Searches only user-supplied sites and documents; it is not a web index. |
+| Local index | Optional private corpus | `SF_LOCAL_INDEX_PATH` | Searches only user-supplied sites and documents; it is not a web index. See [`local-index.md`](local-index.md). |
 
 SearchRelay never scrapes Google, Bing, or Brave HTML result pages.
 

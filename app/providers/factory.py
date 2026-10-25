@@ -13,6 +13,7 @@ from app.providers.adapters import (
 )
 from app.providers.config import ProviderRuntimeConfig, load_provider_configs
 from app.providers.federation import FederatedSearchProvider
+from app.providers.local import LocalIndexProvider
 from app.providers.reliability import ReliabilityConfig, ResilientProvider
 
 
@@ -93,6 +94,8 @@ def _build_provider(config: ProviderRuntimeConfig, client: httpx.AsyncClient):
                 timeout_seconds=config.timeout_seconds,
             ),
         )
+    if config.name == "local":
+        return LocalIndexProvider(config.base_url)
     raise RuntimeError(
         f"SearchRelay provider configuration error: provider '{config.name}' is not implemented"
     )

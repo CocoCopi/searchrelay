@@ -38,7 +38,7 @@ class ProviderRuntimeConfig:
 
 def load_provider_configs(settings: Settings) -> list[ProviderRuntimeConfig]:
     payload = _load_config_file(settings.provider_config_file)
-    priorities = _priorities(payload, settings.provider_priorities_csv)
+    priorities = _priorities(payload, settings.provider_priorities)
     entries = payload.get("providers", {})
     if not isinstance(entries, dict):
         raise RuntimeError("SearchRelay provider configuration error: 'providers' must be an object")
@@ -91,7 +91,7 @@ def load_provider_configs(settings: Settings) -> list[ProviderRuntimeConfig]:
                 ProviderRuntimeConfig(
                     name=name,
                     enabled=True,
-                    base_url=str(raw.get("base_url") or ""),
+                    base_url=str(raw.get("base_url") or settings.local_index_path),
                     timeout_seconds=_number(
                         raw.get("timeout_seconds", 5.0),
                         name,

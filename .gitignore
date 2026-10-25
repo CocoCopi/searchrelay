@@ -15,4 +15,5 @@ data/
 *.sqlite3
 node_modules/
 dist/
+site/
 benchmarks/results/

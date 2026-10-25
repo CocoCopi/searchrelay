@@ -146,11 +146,16 @@ class Settings(BaseSettings):
     def validate_cache_database_path(cls, value: object) -> object:
         if value is None:
             return None
-        if isinstance(value, str) and not value.strip():
-            # An empty value disables the persistent tier. Pointing SQLite at
-            # an empty path would otherwise fail every request at runtime.
-            return None
-        path = Path(value).expanduser()
+        if isinstance(value, str):
+            if not value.strip():
+                # An empty value disables the persistent tier. Pointing SQLite
+                # at an empty path would otherwise fail every request.
+                return None
+            path = Path(value).expanduser()
+        elif isinstance(value, Path):
+            path = value.expanduser()
+        else:
+            return value
         if str(path) == ".":
             raise ValueError("cache_database_path must point at a writable file, not a directory")
         return path

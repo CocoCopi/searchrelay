@@ -33,6 +33,10 @@ jobs:
             --self-test \
             --providers brave,serper,tavily,exa,searxng \
             --output /tmp/searchrelay-benchmark.json
+      - name: Build documentation site
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+        run: mkdocs build --strict --site-dir /tmp/searchrelay-site
 
   clients:
     runs-on: ubuntu-latest
